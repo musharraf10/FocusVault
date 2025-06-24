@@ -18,6 +18,8 @@ import VerifyEmail from './pages/auth/VerifyEmail';
 import LoadingScreen from './components/ui/LoadingScreen';
 import StudySession from './components/study/StudySession';
 import FeedbackPage from './pages/Feedback';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 
 function App() {
   const { user, loading, logout } = useAuth();
@@ -56,6 +58,8 @@ function App() {
             <Route element={<AuthLayout />}>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password/:token" element={<ResetPassword />} />
             </Route>
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="*" element={<Navigate to="/login" replace />} />

@@ -11,6 +11,8 @@ import { ChatProvider } from './context/ChatContext.jsx';
 import ErrorBoundary from './components/ui/ErrorBoundry.jsx';
 import './index.css';
 import { FeedbackProvider } from './context/FeedbackContext.jsx';
+import { setupAxios } from './services/apiServices';
+
 
 // Register service worker for PWA
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
@@ -31,13 +33,14 @@ if ('Notification' in window && 'serviceWorker' in navigator) {
     console.log('Notification permission:', permission);
   });
 }
-
+setupAxios();
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
           <SocketProvider>
+
             <StudyProvider>
               <ChatProvider>
                 <FeedbackProvider>
@@ -59,6 +62,7 @@ createRoot(document.getElementById('root')).render(
                 />
               </ChatProvider>
             </StudyProvider>
+
           </SocketProvider>
         </AuthProvider>
       </ThemeProvider>

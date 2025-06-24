@@ -200,4 +200,67 @@ router.get("/me", authMiddleware, async (req, res) => {
   }
 });
 
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user)
+      return res
+        .status(404)
+        .json({ message: "User not found with this email" });
+
+    if (
+      user.resetPasswordExpires &&
+      user.resetPasswordExpires > Date.now() - 5 * 60 * 1000
+    ) {
+      return res
+        .status(429)
+        .json({ message: "Please wait 5 minutes before requesting again" });
+    }
+
+    // Generate reset token & expiry
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = resetExpires;
+    await user.save();
+
+    await emailService.sendPasswordResetEmail(user, resetToken);
+
+    res.json({ message: "Password reset email sent" });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ message: "Failed to send password reset email" });
+  }
+});
+
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ message: "Invalid or expired reset token" });
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.json({ message: "Password reset successful. You can now log in." });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ message: "Failed to reset password" });
+  }
+});
+
 export default router;

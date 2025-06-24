@@ -17,7 +17,7 @@ const NotesView = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
-  
+
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const NOTES_PER_PAGE = 10;
 
@@ -37,7 +37,7 @@ const NotesView = () => {
     try {
       setLoading(true);
       const res = await axios.get(`${API_URL}/api/study/notes?search=${query}&page=${page}&limit=${NOTES_PER_PAGE}`);
-      
+
       if (res.data.notes) {
         // Backend returns paginated response
         setNotes(res.data.notes);
@@ -207,7 +207,7 @@ const NotesView = () => {
         <div className="text-sm text-gray-600 dark:text-gray-300">
           Showing {((currentPage - 1) * NOTES_PER_PAGE) + 1} to {Math.min(currentPage * NOTES_PER_PAGE, totalCount)} of {totalCount} notes
         </div>
-        
+
         <div className="flex items-center space-x-2">
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -239,11 +239,10 @@ const NotesView = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => handlePageChange(page)}
-              className={`px-3 py-1 rounded-lg font-medium ${
-                page === currentPage
-                  ? 'bg-gradient-to-r from-primary-600 to-secondary-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-              }`}
+              className={`px-3 py-1 rounded-lg font-medium ${page === currentPage
+                ? 'bg-gradient-to-r from-primary-600 to-secondary-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                }`}
             >
               {page}
             </motion.button>

@@ -441,8 +441,8 @@ const Home = ({ user }) => {
                                         <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center mx-auto mb-2">
                                             <Trophy className="text-white" size={20} />
                                         </div>
-                                        <p className="text-2xl font-bold text-orange-600">{analytics.userStats.currentStreak}</p>
-                                        <p className="text-xs text-orange-600 font-medium">Day Streak</p>
+                                        <p className="text-2xl font-bold text-orange-600">{analytics.userStats.highestStreak}</p>
+                                        <p className="text-xs text-orange-600 font-medium">Highest Streak</p>
                                     </motion.div>
                                 </div>
                                 {/* study analytics */}

@@ -1,149 +1,174 @@
-import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
-const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    lowercase: true,
-    trim: true
-  },
-  password: {
-    type: String,
-    minlength: 6
-  },
-  googleId: {
-    type: String,
-    unique: true,
-    sparse: true
-  },
-  emailVerified: {
-    type: Boolean,
-    default: false
-  },
-  emailVerificationToken: {
-    type: String
-  },
-  emailVerificationExpires: {
-    type: Date
-  },
-  dateOfBirth: {
-    type: Date
-  },
-  mobile: {
-    type: String,
-    trim: true
-  },
-  profileImage: {
-    type: String,
-    default: ''
-  },
-  preferences: {
-    theme: {
+const userSchema = new mongoose.Schema(
+  {
+    name: {
       type: String,
-      enum: ['light', 'dark'],
-      default: 'light'
+      required: true,
+      trim: true,
     },
-    notifications: {
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    password: {
+      type: String,
+      minlength: 6,
+    },
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    emailVerified: {
       type: Boolean,
-      default: true
+      default: false,
     },
-    defaultStudyTime: {
-      type: Number,
-      default: 60
-    },
-    preferredStudyTime: {
+    emailVerificationToken: {
       type: String,
-      default: 'evening'
     },
-    preferredStudyHours: {
-      start: {
+    emailVerificationExpires: {
+      type: Date,
+    },
+
+    // ✅ Reset password fields (root level)
+    resetPasswordToken: {
+      type: String,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      index: { expires: "15m" }, // Optional TTL
+    },
+
+    dateOfBirth: {
+      type: Date,
+    },
+    mobile: {
+      type: String,
+      trim: true,
+    },
+    profileImage: {
+      type: String,
+      default: "",
+    },
+
+    preferences: {
+      theme: {
         type: String,
-        default: '19:00'
+        enum: ["light", "dark"],
+        default: "light",
       },
-      end: {
+      notifications: {
+        type: Boolean,
+        default: true,
+      },
+      defaultStudyTime: {
+        type: Number,
+        default: 60,
+      },
+      preferredStudyTime: {
         type: String,
-        default: '21:00'
-      }
+        default: "evening",
+      },
+      preferredStudyHours: {
+        start: {
+          type: String,
+          default: "19:00",
+        },
+        end: {
+          type: String,
+          default: "21:00",
+        },
+      },
+      studyDays: {
+        type: [String],
+        default: [
+          "monday",
+          "tuesday",
+          "wednesday",
+          "thursday",
+          "friday",
+          "saturday",
+        ],
+      },
+      emailNotifications: {
+        type: Boolean,
+        default: true,
+      },
+      studyReminders: {
+        type: Boolean,
+        default: true,
+      },
     },
-    studyDays: {
-      type: [String],
-      default: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-    },
-    emailNotifications: {
-      type: Boolean,
-      default: true
-    },
-    studyReminders: {
-      type: Boolean,
-      default: true
-    }
-  },
-  stats: {
-    totalStudyTime: {
-      type: Number,
-      default: 0
-    },
-    totalStudyHours: {
-      type: Number,
-      default: 0
-    },
-    totalSessions: {
-      type: Number,
-      default: 0
-    },
-    subjectsStudied: {
-      type: [String],
-      default: []
-    },
-    currentStreak: {
-      type: Number,
-      default: 0
-    },
-    highestStreak: {
-      type: Number,
-      default: 0
-    },
-    lastStudyDate: {
-      type: Date
-    },
-    dailyStats: [{
-      date: {
+
+    stats: {
+      totalStudyTime: {
+        type: Number,
+        default: 0,
+      },
+      totalStudyHours: {
+        type: Number,
+        default: 0,
+      },
+      totalSessions: {
+        type: Number,
+        default: 0,
+      },
+      subjectsStudied: {
+        type: [String],
+        default: [],
+      },
+      currentStreak: {
+        type: Number,
+        default: 0,
+      },
+      highestStreak: {
+        type: Number,
+        default: 0,
+      },
+      lastStudyDate: {
         type: Date,
-        required: true
       },
-      totalTime: {
-        type: Number,
-        default: 0
-      },
-      sessions: {
-        type: Number,
-        default: 0
-      },
-      subjects: [{
-        name: String,
-        time: Number,
-        sessions: Number
-      }]
-    }]
-  },
-  lastNotificationSent: {
-    type: Date
-  }
-}, {
-  timestamps: true
-});
+      dailyStats: [
+        {
+          date: {
+            type: Date,
+            required: true,
+          },
+          totalTime: {
+            type: Number,
+            default: 0,
+          },
+          sessions: {
+            type: Number,
+            default: 0,
+          },
+          subjects: [
+            {
+              name: String,
+              time: Number,
+              sessions: Number,
+            },
+          ],
+        },
+      ],
+    },
 
-// Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  
+    lastNotificationSent: {
+      type: Date,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -153,18 +178,18 @@ userSchema.pre('save', async function(next) {
   }
 });
 
-// Compare password method
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Remove password from JSON output
-userSchema.methods.toJSON = function() {
+userSchema.methods.toJSON = function () {
   const userObject = this.toObject();
   delete userObject.password;
   delete userObject.emailVerificationToken;
+  delete userObject.resetPasswordToken;
+  delete userObject.resetPasswordExpires;
   return userObject;
 };
 
-export default mongoose.model('User', userSchema);
+export default mongoose.model("User", userSchema);
