@@ -1,9 +1,15 @@
-import { motion } from 'framer-motion';
-import { BookOpen, Target, Users, Zap, Github, Mail, Heart, Shield, Database, Smartphone, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  BookOpen, Target, Users, Zap, Github, Mail, Heart, Shield, Database,
+  Smartphone, ArrowLeft, User, Code, Trophy, ChevronDown, ChevronUp,
+  ExternalLink, Calendar, MapPin, GraduationCap, Briefcase
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
 const AboutUs = () => {
-  const navigate = useNavigate(); // Initialize navigate hook
+  const navigate = useNavigate();
+  const [showDeveloperInfo, setShowDeveloperInfo] = useState(false);
 
   const features = [
     {
@@ -37,9 +43,48 @@ const AboutUs = () => {
     { name: 'Socket.io', description: 'Real-time features' }
   ];
 
-  // Handle back navigation
+  const developerSkills = [
+    { category: 'Languages', skills: ['Python', 'Java (JCF, DSA)', 'JavaScript (DOM, Functions, Event Listeners)'] },
+    { category: 'Frontend', skills: ['ReactJS (Hooks, Props, State)', 'Tailwind CSS', 'EJS'] },
+    { category: 'Backend', skills: ['Node.js', 'Express', 'REST APIs', 'JWT Auth', 'WebRTC', 'Socket.IO'] },
+    { category: 'Databases', skills: ['MongoDB', 'MySQL'] },
+    { category: 'Dev Tools', skills: ['Git & GitHub', 'Postman', 'Stripe', 'Cloudinary', 'MapBox'] }
+  ];
+
+  const projects = [
+    {
+      title: 'FocusVault – Study Productivity Web App',
+      period: 'In Progress',
+      description: 'A full-featured PWA designed to help students manage study routines and track progress.',
+      features: ['Timetable-based study tracking', 'Study Timer with persistent state', 'Notes & Reading Mode', 'Dashboard with analytics', 'JWT authentication'],
+      tech: 'React, TailwindCSS, Framer Motion, Redux, MongoDB, Express'
+    },
+    {
+      title: 'Blogging Platform – MERN Stack',
+      period: 'Feb 2025',
+      description: 'A powerful content management system with role-based access.',
+      features: ['Role-based access (Admin, Curator, Subscriber)', 'JWT-secured authentication', 'Rich text editor', 'Responsive UI'],
+      tech: 'MERN Stack, Tailwind CSS'
+    },
+    {
+      title: 'Video Call App – WebRTC',
+      period: 'Dec 2024',
+      description: 'Real-time communication platform with video/audio streaming.',
+      features: ['Peer-to-peer video/audio via WebRTC', 'Socket.IO for real-time signaling', 'Screen sharing', 'Group chat'],
+      tech: 'React, Node.js, WebRTC, Socket.IO'
+    },
+    {
+      title: 'Wanderlust – Hostel Booking App',
+      period: 'Nov 2023',
+      description: 'Travel-based app to book and explore hostels.',
+      features: ['JWT-secured authentication', 'Cloudinary for image storage', 'MapBox for geolocation', 'REST APIs'],
+      tech: 'MERN Stack, Cloudinary, MapBox',
+      link: 'https://wanderlust-project-link.com'
+    }
+  ];
+
   const handleBack = () => {
-    navigate(-1); // Go back to the previous page
+    navigate(-1);
   };
 
   return (
@@ -49,9 +94,8 @@ const AboutUs = () => {
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="text-center mb-12 relative" // Added relative for positioning
+          className="text-center mb-12 relative"
         >
-          {/* Back Button */}
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -183,11 +227,247 @@ const AboutUs = () => {
           </div>
         </motion.div>
 
-        {/* Developer Info */}
+        {/* Developer Information Toggle */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.5 }}
+          className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 mb-8 overflow-hidden"
+        >
+          <motion.button
+            onClick={() => setShowDeveloperInfo(!showDeveloperInfo)}
+            whileHover={{ backgroundColor: 'rgba(59, 130, 246, 0.05)' }}
+            className="w-full p-6 flex items-center justify-between text-left transition-colors"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                <User className="text-white" size={24} />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white">
+                  About the Developer
+                </h2>
+                <p className="text-gray-600 dark:text-gray-300 text-sm">
+                  Learn more about who built Focus Vault
+                </p>
+              </div>
+            </div>
+            <motion.div
+              animate={{ rotate: showDeveloperInfo ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ChevronDown className="text-gray-400" size={20} />
+            </motion.div>
+          </motion.button>
+
+          <AnimatePresence>
+            {showDeveloperInfo && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="border-t border-gray-100 dark:border-gray-700"
+              >
+                <div className="p-6 space-y-8">
+                  {/* Developer Bio */}
+                  <div className="flex flex-col md:flex-row items-start space-y-4 md:space-y-0 md:space-x-6">
+                    <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
+                      SM
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+                        Shaik Musharaf
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-4 mb-4 text-sm text-gray-600 dark:text-gray-300">
+                        <div className="flex items-center space-x-1">
+                          <GraduationCap size={16} />
+                          <span>B.Tech IT (2020–2024)</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <MapPin size={16} />
+                          <span>NRI Institute of Technology</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <Code size={16} />
+                          <span>Full-Stack Developer</span>
+                        </div>
+                      </div>
+                      <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                        Passionate full-stack web developer specializing in the MERN Stack with a strong foundation
+                        in Java, Python, and JavaScript. Committed to creating seamless digital experiences with
+                        clean architecture, security, responsiveness, and user engagement at the forefront.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Current Project Highlight */}
+                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-6">
+                    <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-3 flex items-center space-x-2">
+                      <Briefcase className="text-blue-500" size={20} />
+                      <span>Current Focus</span>
+                    </h4>
+                    <div className="space-y-2">
+                      <h5 className="font-semibold text-gray-800 dark:text-white">
+                        📚 FocusVault – Study Productivity Web App
+                      </h5>
+                      <p className="text-gray-600 dark:text-gray-300 text-sm">
+                        A comprehensive PWA helping students manage study routines with features like
+                        timetable-based tracking, persistent timers, notes management, and analytics dashboard.
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {['React', 'TailwindCSS', 'Framer Motion', 'Redux', 'MongoDB', 'Express'].map((tech) => (
+                          <span key={tech} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-md">
+                            {tech}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Previous Projects */}
+                  <div>
+                    <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center space-x-2">
+                      <Trophy className="text-yellow-500" size={20} />
+                      <span>Previous Projects</span>
+                    </h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {projects.slice(1).map((project, index) => (
+                        <div key={index} className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <h5 className="font-semibold text-gray-800 dark:text-white text-sm">
+                              {project.title}
+                            </h5>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">
+                              {project.period}
+                            </span>
+                          </div>
+                          <p className="text-gray-600 dark:text-gray-300 text-xs mb-2">
+                            {project.description}
+                          </p>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            <strong>Tech:</strong> {project.tech}
+                          </div>
+                          {project.link && (
+                            <a
+                              href={project.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center space-x-1 text-blue-500 hover:text-blue-600 text-xs mt-2"
+                            >
+                              <ExternalLink size={12} />
+                              <span>View Live</span>
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Technical Skills */}
+                  <div>
+                    <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-4 flex items-center space-x-2">
+                      <Code className="text-green-500" size={20} />
+                      <span>Technical Expertise</span>
+                    </h4>
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {developerSkills.map((skillGroup, index) => (
+                        <div key={index} className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                          <h5 className="font-semibold text-gray-800 dark:text-white mb-2 text-sm">
+                            {skillGroup.category}
+                          </h5>
+                          <div className="space-y-1">
+                            {skillGroup.skills.map((skill, skillIndex) => (
+                              <span key={skillIndex} className="block text-xs text-gray-600 dark:text-gray-300">
+                                • {skill}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Highlights */}
+                  <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-xl p-6">
+                    <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-3 flex items-center space-x-2">
+                      <Trophy className="text-green-500" size={20} />
+                      <span>Key Achievements</span>
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-start space-x-2">
+                        <span className="text-green-500 mt-1">•</span>
+                        <span className="text-gray-600 dark:text-gray-300">
+                          <strong>Trainer at NRI College (2023):</strong> Trained 50+ juniors on web fundamentals including HTML, CSS, JavaScript, and SQL
+                        </span>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <span className="text-green-500 mt-1">•</span>
+                        <span className="text-gray-600 dark:text-gray-300">
+                          Built and maintained full-stack applications independently with focus on modern UI design
+                        </span>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <span className="text-green-500 mt-1">•</span>
+                        <span className="text-gray-600 dark:text-gray-300">
+                          Known for rapid prototyping, team collaboration, and implementing modern development practices
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contact Information */}
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 rounded-xl p-6">
+                    <h4 className="text-lg font-bold text-gray-800 dark:text-white mb-4 text-center">
+                      Connect with the Developer
+                    </h4>
+                    <div className="flex flex-col sm:flex-row items-center justify-center space-y-3 sm:space-y-0 sm:space-x-4">
+                      <motion.a
+                        href="mailto:skmusharaf01@gmail.com"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="flex items-center space-x-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-xl transition-colors border border-gray-200 dark:border-gray-600"
+                      >
+                        <Mail size={16} className="text-red-500" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Email</span>
+                      </motion.a>
+
+                      <motion.a
+                        href="https://github.com/musharraf10"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="flex items-center space-x-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-4 py-2 rounded-xl transition-colors border border-gray-200 dark:border-gray-600"
+                      >
+                        <Github size={16} className="text-gray-700 dark:text-gray-300" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">GitHub</span>
+                      </motion.a>
+
+                      <motion.a
+                        href="https://skmusharaf.netlify.app/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl transition-colors"
+                      >
+                        <ExternalLink size={16} />
+                        <span className="text-sm">Portfolio</span>
+                      </motion.a>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+        {/* Get in Touch */}
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.6 }}
           className="bg-gradient-to-r from-primary-500 to-secondary-500 rounded-2xl p-8 text-white text-center"
         >
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -228,7 +508,7 @@ const AboutUs = () => {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
+          transition={{ delay: 0.7 }}
           className="text-center mt-8 text-gray-500 dark:text-gray-400"
         >
           <p className="text-sm">
