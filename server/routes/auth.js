@@ -182,6 +182,28 @@ router.post("/resend-verification", authMiddleware, async (req, res) => {
   }
 });
 
+// POST /api/auth/verify-phone
+router.post("/verify-phone", authMiddleware, async (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+
+    if (!phoneNumber)
+      return res.status(400).json({ message: "Phone number required" });
+
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.number = phoneNumber;
+    user.phoneVerified = true;
+    await user.save();
+
+    res.json({ message: "Phone number verified successfully" });
+  } catch (error) {
+    console.error("Phone verification error:", error);
+    res.status(500).json({ message: "Failed to verify phone number" });
+  }
+});
+
 // Get current user
 router.get("/me", authMiddleware, async (req, res) => {
   try {

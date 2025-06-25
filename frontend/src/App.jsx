@@ -20,6 +20,8 @@ import StudySession from './components/study/StudySession';
 import FeedbackPage from './pages/Feedback';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
+import PhoneVerificationPage from './pages/auth/PhoneVerification';
+import Rankings from './pages/Rankings';
 
 function App() {
   const { user, loading, logout } = useAuth();
@@ -28,15 +30,22 @@ function App() {
   if (loading) return <LoadingScreen />;
 
   const isOnVerifyPage = location.pathname.startsWith('/verify-email');
+  const isOnVerifyPhonePage = location.pathname.startsWith('/verify-phone');
 
   if (user && !user.emailVerified && !isOnVerifyPage) {
     return <EmailVerification />;
   }
 
+  //Future implementation for phone verification
+  // if (user && user.emailVerified && !user.phoneVerified && !isOnVerifyPhonePage) {
+  //   return <PhoneVerificationPage />;
+  // }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <Routes>
         <Route path="/verify-email/:token" element={<VerifyEmail />} />
+        <Route path="/verify-phone" element={<PhoneVerificationPage />} />
         <Route path="/terms" element={<TermsAndConditions />} />
 
         {user ? (
@@ -50,6 +59,7 @@ function App() {
             <Route path="/help" element={<Help />} />
             <Route path="/about" element={<AboutUs />} />
             <Route path="/feedback" element={<FeedbackPage user={user} />} />
+            <Route path='/rankings' element={<Rankings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         ) : (

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircleMore } from 'lucide-react';
+import { MessageCircleMore, Trophy, MoreVertical } from 'lucide-react';
 
 const FloatingFeedbackButton = ({ hasNewFeedback = true }) => {
     const navigate = useNavigate();
@@ -9,13 +9,22 @@ const FloatingFeedbackButton = ({ hasNewFeedback = true }) => {
         const saved = localStorage.getItem('feedbackBtnPosition');
         return saved ? JSON.parse(saved) : { x: 20, y: window.innerHeight - 100 };
     });
-    const [dragging, setDragging] = useState(false);
-    const offset = useRef({ x: 0, y: 0 });
 
-    // Handle mouse/touch move
+    const [dragging, setDragging] = useState(false);
+    const [expanded, setExpanded] = useState(false);
+    const [inactive, setInactive] = useState(false);
+    const offset = useRef({ x: 0, y: 0 });
+    const timer = useRef(null);
+
+    const resetInactivity = () => {
+        setInactive(false);
+        clearTimeout(timer.current);
+        timer.current = setTimeout(() => setInactive(true), 8000); // 8 seconds to sleep
+    };
+    // <MessageCircleMore className="w-4 h-4" />
+    // Handle drag move
     const handleMove = (e) => {
         if (!dragging) return;
-
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
@@ -26,9 +35,9 @@ const FloatingFeedbackButton = ({ hasNewFeedback = true }) => {
         const clampedY = Math.max(0, Math.min(window.innerHeight - 60, newY));
 
         setPosition({ x: clampedX, y: clampedY });
+        resetInactivity();
     };
 
-    // Stop dragging
     const stopDragging = () => {
         if (dragging) {
             setDragging(false);
@@ -41,13 +50,17 @@ const FloatingFeedbackButton = ({ hasNewFeedback = true }) => {
         window.addEventListener('mouseup', stopDragging);
         window.addEventListener('touchmove', handleMove);
         window.addEventListener('touchend', stopDragging);
+
+        resetInactivity(); // Start inactivity timer
+
         return () => {
             window.removeEventListener('mousemove', handleMove);
             window.removeEventListener('mouseup', stopDragging);
             window.removeEventListener('touchmove', handleMove);
             window.removeEventListener('touchend', stopDragging);
+            clearTimeout(timer.current);
         };
-    }, [dragging, position]);
+    }, [dragging]);
 
     return (
         <div
@@ -58,6 +71,7 @@ const FloatingFeedbackButton = ({ hasNewFeedback = true }) => {
                     y: e.clientY - position.y,
                 };
                 setDragging(true);
+                resetInactivity();
             }}
             onTouchStart={(e) => {
                 offset.current = {
@@ -65,29 +79,63 @@ const FloatingFeedbackButton = ({ hasNewFeedback = true }) => {
                     y: e.touches[0].clientY - position.y,
                 };
                 setDragging(true);
+                resetInactivity();
+            }}
+            onClick={() => {
+                setExpanded((prev) => !prev);
+                resetInactivity();
             }}
             style={{
                 position: 'fixed',
                 left: position.x,
                 top: position.y,
                 zIndex: 9999,
+                cursor: dragging ? 'grabbing' : 'pointer',
+                opacity: inactive ? 0.4 : 1,
+                transition: dragging ? 'none' : 'opacity 0.5s, transform 0.3s',
                 touchAction: 'none',
-                cursor: dragging ? 'grabbing' : 'grab',
-                transition: dragging ? 'none' : 'transform 0.3s',
             }}
         >
-            <button
-                onClick={() => navigate('/feedback')}
-                className="relative bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 transition-all duration-300"
-            >
-                <MessageCircleMore className="w-4 h-4" />
-                <span className="hidden sm:inline">Feedback</span>
+            {/* Main Floating Button */}
+            <div className="relative">
+                <button
+                    className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-xl transition-all duration-300 flex items-center justify-center"
+                >
+                    <MoreVertical size={20} />
+                </button>
 
-                {/* 🔴 Notification Badge */}
-                {hasNewFeedback && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping"></span>
+                {/* Expandable Options */}
+                {expanded && (
+                    <div className="absolute bottom-14 right-0 space-y-2">
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                navigate('/feedback');
+                                setExpanded(false);
+                            }}
+                            className="flex items-center gap-2 bg-white text-blue-600 hover:bg-blue-100 px-3 py-2 rounded-full shadow"
+                        >
+                            <MessageCircleMore size={16} />
+                            <span>Feedback</span>
+                            {hasNewFeedback && (
+                                <span className="ml-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
+                            )}
+                        </button>
+
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                navigate('/rankings');
+                                setExpanded(false);
+                            }}
+                            className="flex items-center gap-2 bg-white text-blue-600 hover:bg-blue-100 px-3 py-2 rounded-full shadow"
+                        >
+                            <Trophy size={16} />
+                            <span>Rankings</span>
+                        </button>
+                    </div>
                 )}
-            </button>
+            </div>
         </div>
     );
 };

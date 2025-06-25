@@ -97,6 +97,65 @@ router.get("/dashboard", async (req, res) => {
   }
 });
 
+// GET /api/study/rankings?range=weekly&page=1&limit=50
+router.get("/rankings", async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const aggregation = await StudySession.aggregate([
+      { $match: { completed: true } },
+      {
+        $group: {
+          _id: "$userId",
+          totalStudyHours: { $sum: "$actualTime" },
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      { $unwind: "$user" },
+      {
+        $project: {
+          userId: "$_id",
+          name: "$user.name",
+          profileImage: "$user.profileImage",
+          totalStudyHours: 1,
+          currentStreak: "$user.stats.currentStreak", // use from user model
+        },
+      },
+      {
+        $sort: {
+          totalStudyHours: -1,
+          currentStreak: -1, // tiebreaker
+        },
+      },
+      { $skip: skip },
+      { $limit: limit },
+    ]);
+
+    const total = await StudySession.distinct("userId", {
+      completed: true,
+    }).then((users) => users.length);
+
+    res.json({
+      data: aggregation,
+      total,
+      page,
+      limit,
+    });
+  } catch (err) {
+    console.error("[Rankings Error]", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // Get all active and paused sessions for user
 router.get("/state", async (req, res) => {
   try {
@@ -291,7 +350,8 @@ async function updateUserStats(userId, sessionTime, subject) {
 
     // Update total study time and hours
     user.stats.totalStudyTime = (user.stats.totalStudyTime || 0) + sessionTime;
-    user.stats.totalStudyHours = Math.round((user.stats.totalStudyTime / 3600) * 100) / 100;
+    user.stats.totalStudyHours =
+      Math.round((user.stats.totalStudyTime / 3600) * 100) / 100;
     user.stats.totalSessions = (user.stats.totalSessions || 0) + 1;
 
     // Update subjects studied
@@ -300,8 +360,8 @@ async function updateUserStats(userId, sessionTime, subject) {
     }
 
     // Update daily stats
-    let todayStats = user.stats.dailyStats.find(stat => 
-      stat.date.toDateString() === today.toDateString()
+    let todayStats = user.stats.dailyStats.find(
+      (stat) => stat.date.toDateString() === today.toDateString()
     );
 
     if (!todayStats) {
@@ -309,7 +369,7 @@ async function updateUserStats(userId, sessionTime, subject) {
         date: today,
         totalTime: 0,
         sessions: 0,
-        subjects: []
+        subjects: [],
       };
       user.stats.dailyStats.push(todayStats);
     }
@@ -318,7 +378,7 @@ async function updateUserStats(userId, sessionTime, subject) {
     todayStats.sessions += 1;
 
     // Update subject stats for today
-    let subjectStats = todayStats.subjects.find(s => s.name === subject);
+    let subjectStats = todayStats.subjects.find((s) => s.name === subject);
     if (!subjectStats) {
       subjectStats = { name: subject, time: 0, sessions: 0 };
       todayStats.subjects.push(subjectStats);
@@ -350,7 +410,7 @@ async function updateUserStats(userId, sessionTime, subject) {
 
     // Keep only last 30 days of daily stats
     user.stats.dailyStats = user.stats.dailyStats
-      .filter(stat => {
+      .filter((stat) => {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         return stat.date >= thirtyDaysAgo;
@@ -367,7 +427,7 @@ async function updateUserStats(userId, sessionTime, subject) {
 router.get("/analytics", async (req, res) => {
   try {
     const userId = req.userId;
-    const { period = 'week', subject, startDate, endDate } = req.query;
+    const { period = "week", subject, startDate, endDate } = req.query;
 
     const user = await User.findById(userId);
     if (!user) {
@@ -381,22 +441,22 @@ router.get("/analytics", async (req, res) => {
       dateFilter = {
         date: {
           $gte: new Date(startDate),
-          $lte: new Date(endDate)
-        }
+          $lte: new Date(endDate),
+        },
       };
     } else {
       switch (period) {
-        case 'month':
+        case "month":
           const monthAgo = new Date(now);
           monthAgo.setMonth(monthAgo.getMonth() - 1);
           dateFilter = { date: { $gte: monthAgo } };
           break;
-        case 'year':
+        case "year":
           const yearAgo = new Date(now);
           yearAgo.setFullYear(yearAgo.getFullYear() - 1);
           dateFilter = { date: { $gte: yearAgo } };
           break;
-        case 'week':
+        case "week":
         default:
           const weekAgo = new Date(now);
           weekAgo.setDate(weekAgo.getDate() - 7);
@@ -405,42 +465,50 @@ router.get("/analytics", async (req, res) => {
     }
 
     // Filter daily stats
-    let dailyStats = user.stats.dailyStats.filter(stat => {
+    let dailyStats = user.stats.dailyStats.filter((stat) => {
       if (dateFilter.date) {
-        return stat.date >= dateFilter.date.$gte && 
-               (!dateFilter.date.$lte || stat.date <= dateFilter.date.$lte);
+        return (
+          stat.date >= dateFilter.date.$gte &&
+          (!dateFilter.date.$lte || stat.date <= dateFilter.date.$lte)
+        );
       }
       return true;
     });
 
     // Filter by subject if specified
     if (subject) {
-      dailyStats = dailyStats.map(day => ({
-        ...day.toObject(),
-        subjects: day.subjects.filter(s => s.name === subject),
-        totalTime: day.subjects
-          .filter(s => s.name === subject)
-          .reduce((sum, s) => sum + s.time, 0),
-        sessions: day.subjects
-          .filter(s => s.name === subject)
-          .reduce((sum, s) => sum + s.sessions, 0)
-      })).filter(day => day.subjects.length > 0);
+      dailyStats = dailyStats
+        .map((day) => ({
+          ...day.toObject(),
+          subjects: day.subjects.filter((s) => s.name === subject),
+          totalTime: day.subjects
+            .filter((s) => s.name === subject)
+            .reduce((sum, s) => sum + s.time, 0),
+          sessions: day.subjects
+            .filter((s) => s.name === subject)
+            .reduce((sum, s) => sum + s.sessions, 0),
+        }))
+        .filter((day) => day.subjects.length > 0);
     }
 
     // Calculate summary stats
     const totalTime = dailyStats.reduce((sum, day) => sum + day.totalTime, 0);
-    const totalSessions = dailyStats.reduce((sum, day) => sum + day.sessions, 0);
-    const averageSessionTime = totalSessions > 0 ? totalTime / totalSessions : 0;
+    const totalSessions = dailyStats.reduce(
+      (sum, day) => sum + day.sessions,
+      0
+    );
+    const averageSessionTime =
+      totalSessions > 0 ? totalTime / totalSessions : 0;
 
     // Subject breakdown
     const subjectBreakdown = {};
-    dailyStats.forEach(day => {
-      day.subjects.forEach(subj => {
+    dailyStats.forEach((day) => {
+      day.subjects.forEach((subj) => {
         if (!subjectBreakdown[subj.name]) {
           subjectBreakdown[subj.name] = {
             totalTime: 0,
             sessions: 0,
-            averageTime: 0
+            averageTime: 0,
           };
         }
         subjectBreakdown[subj.name].totalTime += subj.time;
@@ -449,7 +517,7 @@ router.get("/analytics", async (req, res) => {
     });
 
     // Calculate averages
-    Object.keys(subjectBreakdown).forEach(subject => {
+    Object.keys(subjectBreakdown).forEach((subject) => {
       const data = subjectBreakdown[subject];
       data.averageTime = data.sessions > 0 ? data.totalTime / data.sessions : 0;
     });
@@ -461,17 +529,19 @@ router.get("/analytics", async (req, res) => {
         averageSessionTime,
         totalHours: Math.round((totalTime / 3600) * 100) / 100,
         daysActive: dailyStats.length,
-        period
+        period,
       },
-      dailyStats: dailyStats.sort((a, b) => new Date(a.date) - new Date(b.date)),
+      dailyStats: dailyStats.sort(
+        (a, b) => new Date(a.date) - new Date(b.date)
+      ),
       subjectBreakdown,
       userStats: {
         totalStudyHours: user.stats.totalStudyHours,
         totalSessions: user.stats.totalSessions,
         currentStreak: user.stats.currentStreak,
         highestStreak: user.stats.highestStreak,
-        subjectsStudied: user.stats.subjectsStudied
-      }
+        subjectsStudied: user.stats.subjectsStudied,
+      },
     });
   } catch (error) {
     console.error("Analytics error:", error);
@@ -729,19 +799,19 @@ router.get("/notifications/calendar", async (req, res) => {
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     // Get today's and tomorrow's events
     const upcomingEvents = await CalendarEvent.find({
       userId,
       date: {
         $gte: today,
-        $lte: tomorrow
-      }
+        $lte: tomorrow,
+      },
     }).sort({ date: 1, startTime: 1 });
 
     res.json({
       events: upcomingEvents,
-      count: upcomingEvents.length
+      count: upcomingEvents.length,
     });
   } catch (error) {
     console.error("Calendar notifications error:", error);

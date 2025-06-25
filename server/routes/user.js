@@ -1,38 +1,37 @@
-import express from 'express';
-import User from '../models/User.js';
-import bcrypt from 'bcryptjs';
+import express from "express";
+import User from "../models/User.js";
+import bcrypt from "bcryptjs";
 
 const router = express.Router();
 
 // Update user profile
-router.put('/profile', async (req, res) => {
+router.put("/profile", async (req, res) => {
   try {
     const { name, dateOfBirth, mobile, profileImage } = req.body;
-    
+
     const user = await User.findByIdAndUpdate(
-      req.userId,
+      req.user._id,
       {
         name,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-        mobile,
-        profileImage
+        number: mobile,
+        profileImage,
       },
       { new: true }
     );
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
-
     res.json(user);
   } catch (error) {
-    console.error('Update profile error:', error);
-    res.status(500).json({ message: 'Failed to update profile' });
+    console.error("Update profile error:", error);
+    res.status(500).json({ message: "Failed to update profile" });
   }
 });
 
 // Update user preferences
-router.put('/preferences', async (req, res) => {
+router.put("/preferences", async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
       req.userId,
@@ -41,30 +40,30 @@ router.put('/preferences', async (req, res) => {
     );
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     res.json(user.preferences);
   } catch (error) {
-    console.error('Update preferences error:', error);
-    res.status(500).json({ message: 'Failed to update preferences' });
+    console.error("Update preferences error:", error);
+    res.status(500).json({ message: "Failed to update preferences" });
   }
 });
 
 // Change password
-router.put('/password', async (req, res) => {
+router.put("/password", async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    
-    const user = await User.findById(req.userId).select('+password');
+
+    const user = await User.findById(req.userId).select("+password");
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     // Verify current password
     const isCurrentPasswordValid = await user.comparePassword(currentPassword);
     if (!isCurrentPasswordValid) {
-      return res.status(400).json({ message: 'Current password is incorrect' });
+      return res.status(400).json({ message: "Current password is incorrect" });
     }
 
     // Hash new password
@@ -74,10 +73,10 @@ router.put('/password', async (req, res) => {
     // Update password
     await User.findByIdAndUpdate(req.userId, { password: hashedPassword });
 
-    res.json({ message: 'Password updated successfully' });
+    res.json({ message: "Password updated successfully" });
   } catch (error) {
-    console.error('Change password error:', error);
-    res.status(500).json({ message: 'Failed to change password' });
+    console.error("Change password error:", error);
+    res.status(500).json({ message: "Failed to change password" });
   }
 });
 

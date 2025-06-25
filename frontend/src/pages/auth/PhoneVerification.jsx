@@ -1,38 +1,33 @@
-import { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Phone, Shield, ArrowLeft, CheckCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Phone, Shield, ArrowLeft, CheckCircle, Send, Smartphone } from 'lucide-react';
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
-// import { useAppDispatch, useAuth } from '../../hooks/useRedux';
-// import { verifyPhone, setPhoneVerificationStep } from '../../store/slices/authSlice';
+import { auth } from '../../firebase';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 
 const PhoneVerification = ({ onComplete, onBack }) => {
-    const dispatch = useAppDispatch();
-    const { phoneVerificationStep, loading } = useAuth();
-    const [phoneNumber, setPhoneNumber] = useState('');
-    const [verificationCode, setVerificationCode] = useState('');
+    const [phone, setPhone] = useState('');
+    const [otp, setOtp] = useState('');
+    const [step, setStep] = useState('send');
     const [confirmationResult, setConfirmationResult] = useState(null);
     const [countdown, setCountdown] = useState(0);
+    const [loading, setLoading] = useState(false);
     const recaptchaRef = useRef(null);
-
+    const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:5000';
     useEffect(() => {
-        let interval;
+        let timer;
         if (countdown > 0) {
-            interval = setInterval(() => {
-                setCountdown(prev => prev - 1);
-            }, 1000);
+            timer = setInterval(() => setCountdown(c => c - 1), 1000);
         }
-        return () => clearInterval(interval);
+        return () => clearInterval(timer);
     }, [countdown]);
 
     useEffect(() => {
-        // Initialize reCAPTCHA
-        if (phoneVerificationStep === 'send' && !window.recaptchaVerifier) {
+        if (step === 'send' && !window.recaptchaVerifier) {
             window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
                 size: 'invisible',
-                callback: () => {
-                    // reCAPTCHA solved
-                }
+                callback: () => { },
             });
         }
 
@@ -42,248 +37,421 @@ const PhoneVerification = ({ onComplete, onBack }) => {
                 window.recaptchaVerifier = null;
             }
         };
-    }, [phoneVerificationStep]);
-
-    const formatPhoneNumber = (value) => {
-        // Remove all non-digits
-        const digits = value.replace(/\D/g, '');
-
-        // Format as +1 (XXX) XXX-XXXX
-        if (digits.length >= 10) {
-            return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7, 11)}`;
-        } else if (digits.length >= 7) {
-            return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
-        } else if (digits.length >= 4) {
-            return `+1 (${digits.slice(1, 4)}) ${digits.slice(4)}`;
-        } else if (digits.length >= 1) {
-            return `+1 (${digits.slice(1)}`;
-        }
-        return '+1 ';
-    };
+    }, [step]);
 
     const handlePhoneChange = (e) => {
-        const formatted = formatPhoneNumber(e.target.value);
-        setPhoneNumber(formatted);
+        const input = e.target.value.replace(/\D/g, '').slice(0, 10);
+        setPhone(input);
     };
 
-    const sendVerificationCode = async () => {
+    const sendOTP = async () => {
+        const formattedNumber = `+91${phone}`;
+        if (phone.length !== 10) {
+            toast.error('Please enter a valid 10-digit Indian phone number');
+            return;
+        }
+
+        setLoading(true);
         try {
-            // Extract digits only for Firebase
-            const digits = phoneNumber.replace(/\D/g, '');
-            const formattedNumber = `+${digits}`;
-
-            if (digits.length !== 11 || !digits.startsWith('1')) {
-                toast.error('Please enter a valid US phone number');
-                return;
-            }
-
             const appVerifier = window.recaptchaVerifier;
-            const confirmation = await signInWithPhoneNumber(auth, formattedNumber, appVerifier);
-
-            setConfirmationResult(confirmation);
-            dispatch(setPhoneVerificationStep('verify'));
+            const result = await signInWithPhoneNumber(auth, formattedNumber, appVerifier);
+            setConfirmationResult(result);
+            setStep('verify');
             setCountdown(60);
-            toast.success('Verification code sent!');
+            toast.success('OTP sent to your number');
         } catch (error) {
-            console.error('Error sending verification code:', error);
-            toast.error('Failed to send verification code. Please try again.');
-
-            // Reset reCAPTCHA
-            if (window.recaptchaVerifier) {
-                window.recaptchaVerifier.clear();
-                window.recaptchaVerifier = null;
-            }
+            console.error(error);
+            toast.error('Failed to send OTP. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
-    const verifyCode = async () => {
+    const verifyOTP = async () => {
+        if (!confirmationResult) {
+            toast.error('OTP expired. Please resend.');
+            return;
+        }
+
+        setLoading(true);
         try {
-            if (!confirmationResult) {
-                toast.error('Please request a new verification code');
-                return;
-            }
+            const result = await confirmationResult.confirm(otp);
+            const phoneNumber = result.user.phoneNumber;
 
-            await confirmationResult.confirm(verificationCode);
+            // Call backend to save
+            await axios.post(`${API_URL}/api/auth/verify-phone`, { phoneNumber });
 
-            // Update backend
-            const digits = phoneNumber.replace(/\D/g, '');
-            const formattedNumber = `+${digits}`;
-
-            await dispatch(verifyPhone({
-                phoneNumber: formattedNumber,
-                verificationCode
-            })).unwrap();
-
-            dispatch(setPhoneVerificationStep('completed'));
-            toast.success('Phone number verified successfully!');
-
-            if (onComplete) {
-                onComplete();
-            }
+            setStep('completed');
+            toast.success('Phone number verified!');
+            if (onComplete) onComplete();
         } catch (error) {
-            console.error('Error verifying code:', error);
-            toast.error('Invalid verification code. Please try again.');
+            console.error(error);
+            toast.error('Invalid OTP. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
-    const resendCode = async () => {
+    const resend = async () => {
         if (countdown > 0) return;
-
-        setVerificationCode('');
+        setStep('send');
+        setOtp('');
         setConfirmationResult(null);
-        dispatch(setPhoneVerificationStep('send'));
-
-        // Reset reCAPTCHA
-        if (window.recaptchaVerifier) {
-            window.recaptchaVerifier.clear();
-            window.recaptchaVerifier = null;
-        }
-
-        setTimeout(() => {
-            sendVerificationCode();
-        }, 1000);
     };
 
-    if (phoneVerificationStep === 'completed') {
+    const containerVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: {
+            opacity: 1,
+            y: 0,
+            transition: { duration: 0.6, ease: "easeOut" }
+        },
+        exit: {
+            opacity: 0,
+            y: -20,
+            transition: { duration: 0.3 }
+        }
+    };
+
+    const buttonVariants = {
+        idle: { scale: 1 },
+        hover: { scale: 1.02 },
+        tap: { scale: 0.98 }
+    };
+
+    const pulseVariants = {
+        pulse: {
+            scale: [1, 1.05, 1],
+            transition: { duration: 2, repeat: Infinity }
+        }
+    };
+
+    if (step === 'completed') {
         return (
             <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-center"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900"
             >
-                <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <CheckCircle className="text-white" size={40} />
+                <div className="w-full max-w-sm">
+                    <motion.div
+                        initial={{ scale: 0, rotate: -180 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{ type: "spring", duration: 0.8, delay: 0.2 }}
+                        className="text-center"
+                    >
+                        <div className="relative mb-8">
+                            <motion.div
+                                animate={pulseVariants.pulse}
+                                className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center mx-auto shadow-xl"
+                            >
+                                <CheckCircle className="text-white" size={48} />
+                            </motion.div>
+                            <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ delay: 0.5, type: "spring" }}
+                                className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center"
+                            >
+                                <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
+                            </motion.div>
+                        </div>
+
+                        <motion.h2
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                            className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-3"
+                        >
+                            Verified!
+                        </motion.h2>
+
+                        <motion.p
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.4 }}
+                            className="text-gray-600 dark:text-gray-300 mb-8 text-lg"
+                        >
+                            Your phone number has been successfully verified.
+                        </motion.p>
+
+                        <motion.button
+                            variants={buttonVariants}
+                            initial="idle"
+                            whileHover="hover"
+                            whileTap="tap"
+                            onClick={onComplete}
+                            className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 px-6 rounded-2xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300"
+                        >
+                            Continue
+                        </motion.button>
+                    </motion.div>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">
-                    Phone Verified!
-                </h2>
-                <p className="text-gray-600 dark:text-gray-300 mb-6">
-                    Your phone number has been successfully verified.
-                </p>
-                <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={onComplete}
-                    className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium"
-                >
-                    Continue
-                </motion.button>
             </motion.div>
         );
     }
 
     return (
-        <div className="space-y-6">
+        <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
             {/* Header */}
-            <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Phone className="text-white" size={32} />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
-                    Verify Your Phone
-                </h2>
-                <p className="text-gray-600 dark:text-gray-300">
-                    {phoneVerificationStep === 'send'
-                        ? 'Enter your phone number to receive a verification code'
-                        : 'Enter the 6-digit code sent to your phone'
-                    }
-                </p>
-            </div>
+            <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 backdrop-blur-3xl"></div>
+                <div className="relative px-4 pt-12 pb-8">
+                    {onBack && (
+                        <motion.button
+                            variants={buttonVariants}
+                            initial="idle"
+                            whileHover="hover"
+                            whileTap="tap"
+                            onClick={onBack}
+                            className="absolute top-12 left-4 p-2 rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg"
+                        >
+                            <ArrowLeft size={20} className="text-gray-700 dark:text-gray-200" />
+                        </motion.button>
+                    )}
 
-            {/* Disclaimer */}
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-xl p-4">
-                <div className="flex items-start space-x-3">
-                    <Shield className="text-yellow-600 flex-shrink-0 mt-0.5" size={20} />
-                    <div className="text-sm text-yellow-800 dark:text-yellow-200">
-                        <p className="font-medium mb-1">Important Notice</p>
-                        <p>Your phone number and email cannot be changed after registration. Please ensure they are correct.</p>
+                    <div className="text-center pt-8">
+                        <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: "spring", duration: 0.6 }}
+                            className="relative mb-6"
+                        >
+                            <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-3xl flex items-center justify-center mx-auto shadow-xl">
+                                <Phone className="text-white" size={36} />
+                            </div>
+                            <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                                className="absolute -inset-2 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 rounded-3xl blur-sm"
+                            ></motion.div>
+                        </motion.div>
+
+                        <motion.h1
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                            className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-3"
+                        >
+                            Verify Phone
+                        </motion.h1>
+
+                        <motion.p
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.3 }}
+                            className="text-gray-600 dark:text-gray-300 text-lg px-8"
+                        >
+                            {step === 'send'
+                                ? 'Enter your Indian phone number to receive OTP'
+                                : 'Enter the 6-digit OTP sent to your number'}
+                        </motion.p>
                     </div>
                 </div>
             </div>
 
-            {phoneVerificationStep === 'send' ? (
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Phone Number
-                        </label>
-                        <input
-                            type="tel"
-                            value={phoneNumber}
-                            onChange={handlePhoneChange}
-                            placeholder="+1 (555) 123-4567"
-                            className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-                        />
-                    </div>
-
-                    <div id="recaptcha-container"></div>
-
-                    <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={sendVerificationCode}
-                        disabled={loading || phoneNumber.replace(/\D/g, '').length !== 11}
-                        className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            {/* Content */}
+            <div className="px-4 pb-8">
+                <div className="max-w-sm mx-auto">
+                    {/* Security Notice */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                        className="mb-8 p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl backdrop-blur-sm"
                     >
-                        {loading ? 'Sending...' : 'Send Verification Code'}
-                    </motion.button>
-                </div>
-            ) : (
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Verification Code
-                        </label>
-                        <input
-                            type="text"
-                            value={verificationCode}
-                            onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                            placeholder="123456"
-                            className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-center text-2xl tracking-widest"
-                            maxLength={6}
-                        />
-                    </div>
+                        <div className="flex items-start space-x-3">
+                            <div className="p-1 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                                <Shield className="text-amber-600 dark:text-amber-400" size={18} />
+                            </div>
+                            <div className="text-sm">
+                                <p className="font-semibold text-amber-800 dark:text-amber-200 mb-1">
+                                    Security Notice
+                                </p>
+                                <p className="text-amber-700 dark:text-amber-300">
+                                    Use a real Indian mobile number. This cannot be changed later.
+                                </p>
+                            </div>
+                        </div>
+                    </motion.div>
 
-                    <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={verifyCode}
-                        disabled={loading || verificationCode.length !== 6}
-                        className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {loading ? 'Verifying...' : 'Verify Code'}
-                    </motion.button>
+                    <AnimatePresence mode="wait">
+                        {step === 'send' ? (
+                            <motion.div
+                                key="send"
+                                variants={containerVariants}
+                                initial="hidden"
+                                animate="visible"
+                                exit="exit"
+                                className="space-y-6"
+                            >
+                                <div>
+                                    <motion.label
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: 0.5 }}
+                                        className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 px-1"
+                                    >
+                                        Phone Number
+                                    </motion.label>
 
-                    <div className="text-center">
-                        <p className="text-sm text-gray-600 dark:text-gray-300">
-                            Didn't receive the code?{' '}
-                            {countdown > 0 ? (
-                                <span className="text-gray-500">Resend in {countdown}s</span>
-                            ) : (
-                                <button
-                                    onClick={resendCode}
-                                    className="text-primary-600 hover:text-primary-700 font-medium"
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.6 }}
+                                        className="relative"
+                                    >
+                                        <div className="flex items-center bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                            <div className="flex items-center px-4 py-4 bg-gray-50 dark:bg-gray-700 border-r border-gray-200 dark:border-gray-600">
+                                                <span className="text-gray-700 dark:text-gray-200 font-medium">🇮🇳 +91</span>
+                                            </div>
+                                            <input
+                                                type="tel"
+                                                value={phone}
+                                                onChange={handlePhoneChange}
+                                                placeholder="9876543210"
+                                                className="flex-1 px-4 py-4 bg-transparent text-gray-800 dark:text-white text-lg font-medium focus:outline-none"
+                                                maxLength={10}
+                                            />
+                                            {phone.length === 10 && (
+                                                <motion.div
+                                                    initial={{ scale: 0 }}
+                                                    animate={{ scale: 1 }}
+                                                    className="pr-4"
+                                                >
+                                                    <CheckCircle className="text-emerald-500" size={20} />
+                                                </motion.div>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                </div>
+
+                                <div id="recaptcha-container" />
+
+                                <motion.button
+                                    variants={buttonVariants}
+                                    initial="idle"
+                                    whileHover={phone.length === 10 ? "hover" : "idle"}
+                                    whileTap={phone.length === 10 ? "tap" : "idle"}
+                                    onClick={sendOTP}
+                                    disabled={phone.length !== 10 || loading}
+                                    className={`w-full py-4 px-6 rounded-2xl font-semibold text-lg shadow-lg transition-all duration-300 flex items-center justify-center space-x-2 ${phone.length === 10 && !loading
+                                        ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:shadow-xl'
+                                        : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                                        }`}
                                 >
-                                    Resend Code
-                                </button>
-                            )}
-                        </p>
-                    </div>
-                </div>
-            )}
+                                    {loading ? (
+                                        <motion.div
+                                            animate={{ rotate: 360 }}
+                                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                            className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+                                        />
+                                    ) : (
+                                        <>
+                                            <Send size={20} />
+                                            <span>Send OTP</span>
+                                        </>
+                                    )}
+                                </motion.button>
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                key="verify"
+                                variants={containerVariants}
+                                initial="hidden"
+                                animate="visible"
+                                exit="exit"
+                                className="space-y-6"
+                            >
+                                <div className="relative">
+                                    <motion.input
+                                        initial={{ opacity: 0, scale: 0.8 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ delay: 0.5 }}
+                                        type="text"
+                                        value={otp}
+                                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                        placeholder="••••••"
+                                        className="w-full p-6 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-2xl text-center text-3xl font-bold tracking-[0.5em] text-gray-800 dark:text-white shadow-lg focus:border-indigo-500 focus:outline-none transition-colors"
+                                        maxLength={6}
+                                    />
 
-            {/* Back Button */}
-            {onBack && (
-                <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={onBack}
-                    className="w-full flex items-center justify-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white transition-colors"
-                >
-                    <ArrowLeft size={16} />
-                    <span>Back</span>
-                </motion.button>
-            )}
+                                    {otp.length === 6 && (
+                                        <motion.div
+                                            initial={{ scale: 0, rotate: -90 }}
+                                            animate={{ scale: 1, rotate: 0 }}
+                                            className="absolute top-6 right-6"
+                                        >
+                                            <CheckCircle className="text-emerald-500" size={24} />
+                                        </motion.div>
+                                    )}
+                                </div>
+
+                                <motion.button
+                                    variants={buttonVariants}
+                                    initial="idle"
+                                    whileHover={otp.length === 6 ? "hover" : "idle"}
+                                    whileTap={otp.length === 6 ? "tap" : "idle"}
+                                    onClick={verifyOTP}
+                                    disabled={otp.length !== 6 || loading}
+                                    className={`w-full py-4 px-6 rounded-2xl font-semibold text-lg shadow-lg transition-all duration-300 flex items-center justify-center space-x-2 ${otp.length === 6 && !loading
+                                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-xl'
+                                        : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                                        }`}
+                                >
+                                    {loading ? (
+                                        <motion.div
+                                            animate={{ rotate: 360 }}
+                                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                            className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+                                        />
+                                    ) : (
+                                        <>
+                                            <CheckCircle size={20} />
+                                            <span>Verify OTP</span>
+                                        </>
+                                    )}
+                                </motion.button>
+
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 0.7 }}
+                                    className="text-center"
+                                >
+                                    <p className="text-gray-600 dark:text-gray-300 mb-2">
+                                        Didn't receive the code?
+                                    </p>
+                                    {countdown > 0 ? (
+                                        <motion.div
+                                            key={countdown}
+                                            initial={{ scale: 1.1 }}
+                                            animate={{ scale: 1 }}
+                                            className="inline-flex items-center space-x-2 text-gray-500 dark:text-gray-400"
+                                        >
+                                            <Smartphone size={16} />
+                                            <span>Resend in {countdown}s</span>
+                                        </motion.div>
+                                    ) : (
+                                        <motion.button
+                                            variants={buttonVariants}
+                                            initial="idle"
+                                            whileHover="hover"
+                                            whileTap="tap"
+                                            onClick={resend}
+                                            className="inline-flex items-center space-x-2 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-semibold transition-colors"
+                                        >
+                                            <Send size={16} />
+                                            <span>Resend Code</span>
+                                        </motion.button>
+                                    )}
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </div>
         </div>
     );
 };

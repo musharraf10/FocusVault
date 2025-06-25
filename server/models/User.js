@@ -35,21 +35,25 @@ const userSchema = new mongoose.Schema(
       type: Date,
     },
 
-    // ✅ Reset password fields (root level)
     resetPasswordToken: {
       type: String,
     },
     resetPasswordExpires: {
       type: Date,
-      index: { expires: "15m" }, // Optional TTL
+      index: { expires: "15m" },
     },
 
     dateOfBirth: {
       type: Date,
     },
-    mobile: {
+    number: {
       type: String,
-      trim: true,
+      unique: true,
+      sparse: true,
+    },
+    phoneVerified: {
+      type: Boolean,
+      default: false,
     },
     profileImage: {
       type: String,
