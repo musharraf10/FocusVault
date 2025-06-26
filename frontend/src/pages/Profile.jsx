@@ -36,11 +36,19 @@ const Profile = ({ user, logout }) => {
     description: '',
     schedule: { monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [] }
   });
+  const [buttonLoading, setButtonLoading] = useState({
+    saveProfile: false,
+    savePreferences: false,
+    changePassword: false,
+    addTimetable: false,
+    setActive: {},
+    deleteTimetable: {}
+  });
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'study', label: 'Study Settings', icon: BookOpen },
+    { id: 'study', label: 'Study Settings ', icon: BookOpen },
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'feedback', label: 'Feedback', icon: Info },
     { id: 'help', label: 'Help & About', icon: HelpCircle },
@@ -181,6 +189,7 @@ const Profile = ({ user, logout }) => {
 
   const handleSaveProfile = async () => {
     try {
+      setButtonLoading(prev => ({ ...prev, saveProfile: true }));
       const token = localStorage.getItem('token');
       await axios.put(`${API_URL}/api/user/profile`, profileData, {
         headers: { Authorization: `Bearer ${token}` },
@@ -189,11 +198,14 @@ const Profile = ({ user, logout }) => {
       setIsEditing(false);
     } catch (error) {
       toast.error('Failed to update profile');
+    } finally {
+      setButtonLoading(prev => ({ ...prev, saveProfile: false }));
     }
   };
 
   const handleSavePreferences = async () => {
     try {
+      setButtonLoading(prev => ({ ...prev, savePreferences: true }));
       const token = localStorage.getItem('token');
       await axios.put(`${API_URL}/api/user/preferences`, preferences, {
         headers: { Authorization: `Bearer ${token}` },
@@ -201,6 +213,8 @@ const Profile = ({ user, logout }) => {
       toast.success('Settings updated successfully!');
     } catch (error) {
       toast.error('Failed to update settings');
+    } finally {
+      setButtonLoading(prev => ({ ...prev, savePreferences: false }));
     }
   };
 
@@ -216,6 +230,7 @@ const Profile = ({ user, logout }) => {
     }
 
     try {
+      setButtonLoading(prev => ({ ...prev, changePassword: true }));
       const token = localStorage.getItem('token');
       await axios.put(
         `${API_URL}/api/user/password`,
@@ -229,6 +244,8 @@ const Profile = ({ user, logout }) => {
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to change password');
+    } finally {
+      setButtonLoading(prev => ({ ...prev, changePassword: false }));
     }
   };
 
@@ -239,6 +256,7 @@ const Profile = ({ user, logout }) => {
     }
 
     try {
+      setButtonLoading(prev => ({ ...prev, addTimetable: true }));
       const token = localStorage.getItem('token');
       if (editingTimetableId) {
         await axios.put(`${API_URL}/api/study/timetables/${editingTimetableId}`, newTimetable, {
@@ -259,11 +277,14 @@ const Profile = ({ user, logout }) => {
       toast.success('Timetable saved successfully!');
     } catch (error) {
       toast.error('Failed to save timetable');
+    } finally {
+      setButtonLoading(prev => ({ ...prev, addTimetable: false }));
     }
   };
 
   const handleSetActive = async (timetableId) => {
     try {
+      setButtonLoading(prev => ({ ...prev, setActive: { ...prev.setActive, [timetableId]: true } }));
       const token = localStorage.getItem('token');
       await axios.put(`${API_URL}/api/study/timetables/${timetableId}/activate`, {}, {
         headers: { Authorization: `Bearer ${token}` },
@@ -277,12 +298,15 @@ const Profile = ({ user, logout }) => {
     } catch (error) {
       console.error('Failed to set timetable active:', error);
       toast.error('Failed to set timetable active');
+    } finally {
+      setButtonLoading(prev => ({ ...prev, setActive: { ...prev.setActive, [timetableId]: false } }));
     }
   };
 
   const handleDeleteTimetable = async (timetableId) => {
     if (!window.confirm('Are you sure you want to delete this timetable?')) return;
     try {
+      setButtonLoading(prev => ({ ...prev, deleteTimetable: { ...prev.deleteTimetable, [timetableId]: true } }));
       const token = localStorage.getItem('token');
       await axios.delete(`${API_URL}/api/study/timetables/${timetableId}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -291,6 +315,8 @@ const Profile = ({ user, logout }) => {
       toast.success('Timetable deleted successfully!');
     } catch (error) {
       toast.error('Failed to delete timetable');
+    } finally {
+      setButtonLoading(prev => ({ ...prev, deleteTimetable: { ...prev.deleteTimetable, [timetableId]: false } }));
     }
   };
 
@@ -401,9 +427,16 @@ const Profile = ({ user, logout }) => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => (isEditing ? handleSaveProfile() : setIsEditing(true))}
-            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-primary-600 to-secondary-600 text-white rounded-xl"
+            disabled={buttonLoading.saveProfile}
+            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-primary-600 to-secondary-600 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isEditing ? <Save size={16} /> : <Edit2 size={16} />}
+            {buttonLoading.saveProfile ? (
+              <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+            ) : isEditing ? (
+              <Save size={16} />
+            ) : (
+              <Edit2 size={16} />
+            )}
             <span>{isEditing ? 'Save' : 'Edit'}</span>
           </motion.button>
         </div>
@@ -459,9 +492,14 @@ const Profile = ({ user, logout }) => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleSaveProfile}
-              className="flex-1 bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium"
+              disabled={buttonLoading.saveProfile}
+              className="flex-1 bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save Changes
+              {buttonLoading.saveProfile ? (
+                <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto" />
+              ) : (
+                'Save Changes'
+              )}
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.02 }}
@@ -483,7 +521,6 @@ const Profile = ({ user, logout }) => {
         <LogOut size={18} />
         <span>Sign Out</span>
       </motion.button>
-
     </div>
   );
 
@@ -545,9 +582,14 @@ const Profile = ({ user, logout }) => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleSavePreferences}
-            className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium"
+            disabled={buttonLoading.savePreferences}
+            className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save Settings
+            {buttonLoading.savePreferences ? (
+              <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto" />
+            ) : (
+              'Save Settings'
+            )}
           </motion.button>
         </div>
       </motion.div>
@@ -619,9 +661,14 @@ const Profile = ({ user, logout }) => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleSavePreferences}
-            className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium"
+            disabled={buttonLoading.savePreferences}
+            className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save Study Settings
+            {buttonLoading.savePreferences ? (
+              <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto" />
+            ) : (
+              'Save Study Settings'
+            )}
           </motion.button>
         </div>
       </motion.div>
@@ -725,9 +772,16 @@ const Profile = ({ user, logout }) => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleAddTimetable}
-                className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium text-sm md:text-base"
+                disabled={buttonLoading.addTimetable}
+                className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {editingTimetableId ? 'Update Timetable' : 'Add Timetable'}
+                {buttonLoading.addTimetable ? (
+                  <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto" />
+                ) : editingTimetableId ? (
+                  'Update Timetable'
+                ) : (
+                  'Add Timetable'
+                )}
               </motion.button>
             </div>
           </div>
@@ -766,9 +820,14 @@ const Profile = ({ user, logout }) => {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => handleSetActive(timetable._id)}
-                      className="px-3 py-1.5 bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-medium rounded-lg hover:bg-green-200 dark:hover:bg-green-900/30 transition-colors"
+                      disabled={buttonLoading.setActive[timetable._id]}
+                      className="px-3 py-1.5 bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-medium rounded-lg hover:bg-green-200 dark:hover:bg-green-900/30 transition-colors disabled:opacity-50"
                     >
-                      Set Active
+                      {buttonLoading.setActive[timetable._id] ? (
+                        <div className="animate-spin w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full mx-auto" />
+                      ) : (
+                        'Set Active'
+                      )}
                     </motion.button>
                   )}
 
@@ -786,10 +845,14 @@ const Profile = ({ user, logout }) => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleDeleteTimetable(timetable._id)}
-                    className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    title="Delete"
+                    disabled={buttonLoading.deleteTimetable[timetable._id]}
+                    className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
                   >
-                    <Trash2 size={16} />
+                    {buttonLoading.deleteTimetable[timetable._id] ? (
+                      <div className="animate-spin w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full" />
+                    ) : (
+                      <Trash2 size={16} />
+                    )}
                   </motion.button>
                 </div>
               </div>
@@ -856,9 +919,14 @@ const Profile = ({ user, logout }) => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleChangePassword}
-            className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium"
+            disabled={buttonLoading.changePassword}
+            className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Change Password
+            {buttonLoading.changePassword ? (
+              <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto" />
+            ) : (
+              'Change Password'
+            )}
           </motion.button>
         </div>
       </motion.div>
@@ -1033,26 +1101,26 @@ const Profile = ({ user, logout }) => {
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Profile</h1>
           <p className="text-gray-600 dark:text-gray-300">Manage your account and preferences</p>
         </div>
-
       </motion.div>
 
-      <div className="overflow-x-auto">
-        <div className="flex space-x-2 pb-2 min-w-max">
+      <div className="overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex space-x-2 pb-2 min-w-max border-b border-gray-200 dark:border-gray-700">
           {tabs.map((tab) => (
             <motion.button
               key={tab.id}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-medium whitespace-nowrap transition-all duration-200 ${activeTab === tab.id
-                ? 'bg-gradient-to-r from-primary-600 to-secondary-600 text-white shadow-lg'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
-                }`}
+              className={`relative flex items-center space-x-2 px-4 py-2 font-medium focus:ring-0 outline:none focus:outline-none whitespace-nowrap transition-all duration-200
+          text-sm border-b-2
+          ${activeTab === tab.id
+                  ? 'border-primary-600 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-gray-600 dark:text-gray-300 hover:text-primary-500 dark:hover:text-primary-400'}
+        `}
             >
               <tab.icon size={16} />
-              <span className="text-sm">{tab.label}</span>
+              <span>{tab.label}</span>
             </motion.button>
-
           ))}
         </div>
       </div>
@@ -1064,7 +1132,6 @@ const Profile = ({ user, logout }) => {
         {activeTab === 'security' && renderSecurityTab()}
         {activeTab === 'feedback' && renderFeedbackTab()}
         {activeTab === 'help' && renderHelpTab()}
-
       </div>
     </div>
   );

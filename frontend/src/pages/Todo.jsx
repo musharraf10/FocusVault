@@ -17,6 +17,12 @@ const Todo = () => {
     dueDate: '',
     category: 'general'
   });
+  const [buttonLoading, setButtonLoading] = useState({
+    add: false,
+    edit: false,
+    toggle: {},
+    delete: {}
+  });
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -48,6 +54,7 @@ const Todo = () => {
     }
 
     try {
+      setButtonLoading(prev => ({ ...prev, add: true }));
       const response = await axios.post(`${API_URL}/api/todo`, newTodo);
       setTodos([response.data, ...todos]);
       setNewTodo({ title: '', description: '', priority: 'medium', dueDate: '', category: 'general' });
@@ -55,26 +62,34 @@ const Todo = () => {
       toast.success('Todo added successfully!');
     } catch (error) {
       toast.error('Failed to add todo');
+    } finally {
+      setButtonLoading(prev => ({ ...prev, add: false }));
     }
   };
 
   const handleToggleTodo = async (id, completed) => {
     try {
+      setButtonLoading(prev => ({ ...prev, toggle: { ...prev.toggle, [id]: true } }));
       const response = await axios.put(`${API_URL}/api/todo/${id}`, { completed: !completed });
       setTodos(todos.map(todo => todo._id === id ? response.data : todo));
       toast.success(completed ? 'Todo marked as incomplete' : 'Todo completed!');
     } catch (error) {
       toast.error('Failed to update todo');
+    } finally {
+      setButtonLoading(prev => ({ ...prev, toggle: { ...prev.toggle, [id]: false } }));
     }
   };
 
   const handleDeleteTodo = async (id) => {
     try {
+      setButtonLoading(prev => ({ ...prev, delete: { ...prev.delete, [id]: true } }));
       await axios.delete(`${API_URL}/api/todo/${id}`);
       setTodos(todos.filter(todo => todo._id !== id));
       toast.success('Todo deleted');
     } catch (error) {
       toast.error('Failed to delete todo');
+    } finally {
+      setButtonLoading(prev => ({ ...prev, delete: { ...prev.delete, [id]: false } }));
     }
   };
 
@@ -85,12 +100,15 @@ const Todo = () => {
     }
 
     try {
+      setButtonLoading(prev => ({ ...prev, edit: true }));
       const response = await axios.put(`${API_URL}/api/todo/${editingTodo._id}`, editingTodo);
       setTodos(todos.map(todo => todo._id === editingTodo._id ? response.data : todo));
       setEditingTodo(null);
       toast.success('Todo updated successfully!');
     } catch (error) {
       toast.error('Failed to update todo');
+    } finally {
+      setButtonLoading(prev => ({ ...prev, edit: false }));
     }
   };
 
@@ -178,10 +196,17 @@ const Todo = () => {
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         onClick={() => setIsAddingTodo(true)}
-        className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-2xl flex items-center justify-center space-x-2 font-medium"
+        disabled={buttonLoading.add}
+        className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-2xl flex items-center justify-center space-x-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <Plus size={20} />
-        <span>Add New Todo</span>
+        {buttonLoading.add ? (
+          <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
+        ) : (
+          <>
+            <Plus size={20} />
+            <span>Add New Todo</span>
+          </>
+        )}
       </motion.button>
 
       {/* Add Todo Form */}
@@ -265,9 +290,14 @@ const Todo = () => {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleAddTodo}
-                  className="flex-1 bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium"
+                  disabled={buttonLoading.add}
+                  className="flex-1 bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Add Todo
+                  {buttonLoading.add ? (
+                    <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto" />
+                  ) : (
+                    'Add Todo'
+                  )}
                 </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
@@ -344,9 +374,14 @@ const Todo = () => {
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={handleEditTodo}
-                        className="flex-1 bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-2 rounded-xl font-medium"
+                        disabled={buttonLoading.edit}
+                        className="flex-1 bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-2 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Save Changes
+                        {buttonLoading.edit ? (
+                          <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto" />
+                        ) : (
+                          'Save Changes'
+                        )}
                       </motion.button>
                       <motion.button
                         whileHover={{ scale: 1.02 }}
@@ -364,12 +399,17 @@ const Todo = () => {
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => handleToggleTodo(todo._id, todo.completed)}
+                      disabled={buttonLoading.toggle[todo._id]}
                       className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mt-1 ${todo.completed
                         ? 'bg-green-500 border-green-500'
                         : 'border-gray-300 dark:border-gray-600 hover:border-green-500'
-                        }`}
+                        } disabled:opacity-50`}
                     >
-                      {todo.completed && <Check className="text-white" size={14} />}
+                      {buttonLoading.toggle[todo._id] ? (
+                        <div className="animate-spin w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full" />
+                      ) : todo.completed ? (
+                        <Check className="text-white" size={14} />
+                      ) : null}
                     </motion.button>
 
                     <div className="flex-1">
@@ -425,9 +465,14 @@ const Todo = () => {
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             onClick={() => handleDeleteTodo(todo._id)}
-                            className="p-2 text-gray-500 hover:text-red-600 transition-colors"
+                            disabled={buttonLoading.delete[todo._id]}
+                            className="p-2 text-gray-500 hover:text-red-600 transition-colors disabled:opacity-50"
                           >
-                            <Trash2 size={16} />
+                            {buttonLoading.delete[todo._id] ? (
+                              <div className="animate-spin w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full" />
+                            ) : (
+                              <Trash2 size={16} />
+                            )}
                           </motion.button>
                         </div>
                       </div>

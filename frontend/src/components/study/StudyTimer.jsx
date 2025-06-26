@@ -3,14 +3,13 @@ import { motion } from 'framer-motion';
 import { Play, Pause, Square, Clock, Target, Book, CheckCircle, PauseCircle, Save, ArrowLeft, Home, Volume2, VolumeX } from 'lucide-react';
 import { useStudy } from '../../context/StudyContext';
 import { useNavigate } from 'react-router-dom';
-import { debounce } from 'lodash';
 import toast from 'react-hot-toast';
+import SessionManager from './StudySession';
 
 const StudyTimer = () => {
   const {
     currentSession,
     isStudying,
-    activeSessions,
     startStudySession,
     pauseSession,
     resumeSession,
@@ -20,130 +19,180 @@ const StudyTimer = () => {
     fetchDashboardAndTimetables,
     getPausedSessions,
     getSessionBySubject,
-    fetchCompletedSubjects
+    fetchCompletedSubjects,
   } = useStudy();
 
   const navigate = useNavigate();
   const [selectedSubject, setSelectedSubject] = useState('');
-  const [elapsedTime, setElapsedTime] = useState(0);
   const [sessionNotes, setSessionNotes] = useState('');
   const [showNotes, setShowNotes] = useState(false);
-  const [isEnding, setIsEnding] = useState(false);
   const [isAlarmPlaying, setIsAlarmPlaying] = useState(false);
   const [alarmMuted, setAlarmMuted] = useState(false);
+  const [loading, setLoading] = useState({
+    start: false,
+    pause: false,
+    resume: false,
+    end: false,
+    saveNotes: false,
+  });
   const audioRef = useRef(null);
-  const intervalRef = useRef(null);
+
+  // Initialize SessionManager
+  const { elapsedTime, saveSessionTimeImmediate, resetSession } = SessionManager({
+    currentSession,
+    isStudying,
+    updateSessionTime,
+    onTimeUpdate: (time) => {
+      if (currentSession && isStudying) {
+        const targetTime = getSubjectDuration(currentSession.subject) * 60;
+        if (time === targetTime && !isAlarmPlaying && !alarmMuted) {
+          setIsAlarmPlaying(true);
+          playAlarm();
+        }
+      }
+    },
+  });
 
   const getTodayKey = () =>
     new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
 
   // Initialize audio
   useEffect(() => {
-    // Create audio context for alarm
-    audioRef.current = new Audio();
-    audioRef.current.loop = true;
-    audioRef.current.volume = 0.7;
-
-    // Use a simple beep sound (data URL for a 1kHz tone)
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-
-    // Create a simple alarm sound using Web Audio API
-    const createAlarmSound = () => {
-      const sampleRate = audioContext.sampleRate;
-      const duration = 0.5; // 0.5 seconds
-      const frameCount = sampleRate * duration;
-      const arrayBuffer = audioContext.createBuffer(1, frameCount, sampleRate);
-      const channelData = arrayBuffer.getChannelData(0);
-
-      for (let i = 0; i < frameCount; i++) {
-        // Create a beep sound at 800Hz
-        channelData[i] = Math.sin(2 * Math.PI * 800 * i / sampleRate) * 0.3;
-      }
-
-      return arrayBuffer;
+    audioRef.current = {
+      audioContext: null,
+      source: null,
+      isPlaying: false,
+      alarmBuffer: null,
     };
 
-    // Store the alarm sound
-    audioRef.current.alarmBuffer = createAlarmSound();
-    audioRef.current.audioContext = audioContext;
+    try {
+      audioRef.current.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const createAlarmSound = () => {
+        const sampleRate = audioRef.current.audioContext.sampleRate;
+        const duration = 0.5;
+        const frameCount = sampleRate * duration;
+        const arrayBuffer = audioRef.current.audioContext.createBuffer(1, frameCount, sampleRate);
+        const channelData = arrayBuffer.getChannelData(0);
 
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, []);
+        for (let i = 0; i < frameCount; i++) {
+          channelData[i] = Math.sin(2 * Math.PI * 800 * i / sampleRate) * 0.3;
+        }
+        return arrayBuffer;
+      };
 
+      audioRef.current.alarmBuffer = createAlarmSound();
 
+      // Resume audio context on user interaction
+      const resumeAudioContext = () => {
+        if (audioRef.current.audioContext.state === 'suspended') {
+          audioRef.current.audioContext.resume().catch(err => {
+            console.error('Failed to resume audio context:', err);
+          });
+        }
+      };
 
+      document.addEventListener('click', resumeAudioContext);
+      document.addEventListener('keydown', resumeAudioContext);
 
-  // Fetch initial data
-  useEffect(() => {
-    fetchDashboardAndTimetables();
-  }, []);
-
-  // Local timer for elapsed time
-  useEffect(() => {
-    let interval;
-    if (isStudying && currentSession) {
-      interval = setInterval(() => {
-        setElapsedTime(prev => {
-          const newTime = prev + 1;
-
-          // Check if target time is reached
-          const targetTime = getSubjectDuration(currentSession.subject) * 60;
-          if (newTime >= targetTime && !isAlarmPlaying && !alarmMuted) {
-            playAlarm();
-          }
-
-          return newTime;
-        });
-      }, 1000);
+      return () => {
+        document.removeEventListener('click', resumeAudioContext);
+        document.removeEventListener('keydown', resumeAudioContext);
+        if (audioRef.current.source) {
+          audioRef.current.source.stop();
+          audioRef.current.source = null;
+        }
+        if (audioRef.current.audioContext) {
+          audioRef.current.audioContext.close().catch(err => {
+            console.error('Failed to close audio context:', err);
+          });
+        }
+        audioRef.current.isPlaying = false;
+      };
+    } catch (err) {
+      console.error('Failed to initialize audio context:', err);
+      toast.error('Audio initialization failed. Please try refreshing the page.');
     }
-    return () => clearInterval(interval);
-  }, [isStudying, currentSession, isAlarmPlaying, alarmMuted]);
+  }, []);
 
-  // Sync local state with context
+  // Update session notes and reset alarm when session changes
   useEffect(() => {
-    if (currentSession) {
-      setElapsedTime(currentSession.elapsedTime || 0);
+    if (currentSession && isStudying) {
       setSessionNotes(currentSession.notes || '');
     } else {
-      setElapsedTime(0);
       setSessionNotes('');
+      setShowNotes(false);
+      setIsAlarmPlaying(false);
+      setAlarmMuted(false);
       stopAlarm();
     }
-  }, [currentSession]);
+  }, [currentSession?.sessionId, isStudying]);
 
-  // Play alarm when target time is reached
-
+  // Play alarm
   const playAlarm = () => {
-    if (alarmMuted) return;
-
-    setIsAlarmPlaying(true);
-
-    // Request permission for browser notifications
-    if ('Notification' in window && Notification.permission !== 'granted') {
-      Notification.requestPermission();
+    if (alarmMuted || !audioRef.current.audioContext || audioRef.current.isPlaying) {
+      return;
     }
 
-    // Show notification if permission is granted
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('Study Session Complete! 🎉', {
+    audioRef.current.isPlaying = true;
+
+    if ('Notification' in window && Notification.permission !== 'granted') {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          new Notification('Study Session Complete! 🎉', {
+            body: `You've completed your ${currentSession?.subject} study session!`,
+            icon: '/pwa-192x192.png',
+            tag: 'study-complete',
+          });
+        }
+      });
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Study Session Complete! kaas🎉', {
         body: `You've completed your ${currentSession?.subject} study session!`,
-        icon: '/android/android-launchericon-192-192.png',
+        icon: '/pwa-192x192.png',
         tag: 'study-complete',
       });
     }
 
-    // Start continuous alarm
-    playBeep();
+    const playSingleBeep = () => {
+      if (!audioRef.current.isPlaying || alarmMuted) {
+        audioRef.current.source = null;
+        return;
+      }
+
+      try {
+        const source = audioRef.current.audioContext.createBufferSource();
+        const gainNode = audioRef.current.audioContext.createGain();
+        source.buffer = audioRef.current.alarmBuffer;
+        source.connect(gainNode);
+        gainNode.connect(audioRef.current.audioContext.destination);
+        gainNode.gain.setValueAtTime(0.3, audioRef.current.audioContext.currentTime);
+        audioRef.current.source = source;
+        source.start();
+
+        source.onended = () => {
+          audioRef.current.source = null;
+          if (audioRef.current.isPlaying && !alarmMuted) {
+            playSingleBeep();
+          }
+        };
+      } catch (err) {
+        console.error('Failed to play alarm:', err);
+        audioRef.current.isPlaying = false;
+        setIsAlarmPlaying(false);
+      }
+    };
+
+    if (audioRef.current.audioContext.state === 'suspended') {
+      audioRef.current.audioContext.resume().then(() => {
+        playSingleBeep();
+      }).catch(err => {
+        console.error('Failed to resume audio context:', err);
+        audioRef.current.isPlaying = false;
+        setIsAlarmPlaying(false);
+      });
+    } else {
+      playSingleBeep();
+    }
 
     toast.success('🎉 Study session target reached!', {
       duration: 5000,
@@ -151,110 +200,25 @@ const StudyTimer = () => {
     });
   };
 
-  const playBeep = () => {
-    if (!audioRef.current?.audioContext || alarmMuted || intervalRef.current) return;
-
-    const audioContext = audioRef.current.audioContext;
-    const buffer = audioRef.current.alarmBuffer;
-
-    // Function to play a single beep
-    const playSingleBeep = () => {
-      const source = audioContext.createBufferSource();
-      const gainNode = audioContext.createGain();
-      source.buffer = buffer;
-      source.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      source.start();
-      return source;
-    };
-
-    // Play beeps repeatedly
-    let isPlaying = true;
-    const scheduleBeep = () => {
-      if (!isPlaying) return;
-      const source = playSingleBeep();
-      source.onended = () => {
-        if (isPlaying) {
-          scheduleBeep();
-        }
-      };
-    };
-
-    scheduleBeep();
-
-    // Store cleanup function in intervalRef
-    intervalRef.current = () => {
-      isPlaying = false;
-    };
-  };
-
+  // Stop alarm
   const stopAlarm = () => {
     setIsAlarmPlaying(false);
-    if (intervalRef.current) {
-      intervalRef.current();
-      intervalRef.current = null;
+    audioRef.current.isPlaying = false;
+    if (audioRef.current.source) {
+      try {
+        audioRef.current.source.stop();
+      } catch (err) {
+        console.error('Failed to stop audio source:', err);
+      }
+      audioRef.current.source = null;
     }
   };
 
+  // Mute alarm
   const muteAlarm = () => {
     setAlarmMuted(true);
     stopAlarm();
   };
-
-  // Debounced session time update with retry logic
-  const saveSessionTime = debounce(async () => {
-    if (currentSession && isStudying) {
-      try {
-        await updateSessionTime(currentSession.sessionId, elapsedTime, 3, 1000);
-      } catch (error) {
-        console.error('Failed to save session time:', error);
-      }
-    }
-  }, 1000);
-
-
-  const handleEndButtonClick = async () => {
-    setIsEnding(true);
-    try {
-      await saveSessionTime();
-
-      setTimeout(() => {
-        handleEndSession();         // Clear session after a short delay
-        setIsEnding(false);
-      }, 300);
-    } catch (err) {
-      console.error("Error ending session:", err);
-      setIsEnding(false);
-    }
-  };
-
-  // Handle window visibility and page unload
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        saveSessionTime();
-      }
-    };
-
-    const handleBeforeUnload = () => {
-      if (currentSession && isStudying) {
-        const data = new Blob([JSON.stringify({ elapsedTime })], { type: 'application/json' });
-        navigator.sendBeacon(
-          `${import.meta.env.API_URL || 'http://localhost:5000'}/api/study/state/${currentSession.sessionId}`,
-          data
-        );
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [currentSession, elapsedTime, isStudying, saveSessionTime]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -265,7 +229,6 @@ const StudyTimer = () => {
   const getSubjectDuration = (subject) => {
     const activeTimetable = studyData.activeTimetable;
     if (!activeTimetable) return 60;
-
     const todayKey = getTodayKey();
     const todaySchedule = activeTimetable.schedule?.[todayKey] || [];
     const scheduleItem = todaySchedule.find(item => item.subject === subject);
@@ -275,53 +238,73 @@ const StudyTimer = () => {
   const getTodaySchedule = () => {
     const activeTimetable = studyData.activeTimetable;
     if (!activeTimetable) return [];
-
     const todayKey = getTodayKey();
     return activeTimetable.schedule?.[todayKey] || [];
   };
 
   const handleStartSession = async () => {
-    if (selectedSubject) {
+    if (selectedSubject && !loading.start) {
+      setLoading(prev => ({ ...prev, start: true }));
       try {
         const targetTime = getSubjectDuration(selectedSubject) * 60;
         await startStudySession(selectedSubject, targetTime);
-        setElapsedTime(0);
+        resetSession();
         setSessionNotes('');
         setIsAlarmPlaying(false);
         setAlarmMuted(false);
+        stopAlarm();
       } catch (error) {
         console.error('Failed to start session:', error);
+        toast.error('Failed to start session');
+      } finally {
+        setLoading(prev => ({ ...prev, start: false }));
       }
     }
   };
 
   const handlePauseSession = async () => {
+    if (loading.pause) return;
+    setLoading(prev => ({ ...prev, pause: true }));
     try {
       stopAlarm();
+      await saveSessionTimeImmediate();
       await pauseSession();
-      await saveSessionTime();
       await fetchDashboardAndTimetables();
       await fetchCompletedSubjects();
     } catch (error) {
       console.error('Failed to pause session:', error);
+      toast.error('Failed to pause session');
+    } finally {
+      setLoading(prev => ({ ...prev, pause: false }));
     }
   };
 
   const handleResumeSession = async (sessionId = null) => {
+    if (loading.resume) return;
+    setLoading(prev => ({ ...prev, resume: true }));
     try {
       await resumeSession(sessionId);
+      const session = getSessionBySubject(currentSession?.subject || selectedSubject);
+      if (session) {
+        setSessionNotes(session.notes || '');
+      }
       await fetchDashboardAndTimetables();
     } catch (error) {
       console.error('Failed to resume session:', error);
+      toast.error('Failed to resume session');
+    } finally {
+      setLoading(prev => ({ ...prev, resume: false }));
     }
   };
 
   const handleEndSession = async () => {
+    if (loading.end) return;
+    setLoading(prev => ({ ...prev, end: true }));
     try {
       stopAlarm();
-      await saveSessionTime();
+      await saveSessionTimeImmediate();
       await endSession(currentSession?.sessionId, sessionNotes);
-      setElapsedTime(0);
+      resetSession();
       setSessionNotes('');
       setShowNotes(false);
       setIsAlarmPlaying(false);
@@ -330,17 +313,25 @@ const StudyTimer = () => {
       await fetchCompletedSubjects();
     } catch (error) {
       console.error('Failed to end session:', error);
+      toast.error('Failed to end session');
+    } finally {
+      setLoading(prev => ({ ...prev, end: false }));
     }
   };
 
   const handleSaveNotes = async () => {
-    if (currentSession) {
-      try {
-        await updateSessionTime(currentSession.sessionId, elapsedTime);
-        setShowNotes(false);
-      } catch (error) {
-        console.error('Failed to save notes:', error);
-      }
+    if (loading.saveNotes || !currentSession) return;
+    setLoading(prev => ({ ...prev, saveNotes: true }));
+    try {
+      await saveSessionTimeImmediate();
+      await updateSessionTime(currentSession.sessionId, elapsedTime, sessionNotes);
+      setShowNotes(false);
+      toast.success('Notes saved successfully');
+    } catch (error) {
+      console.error('Failed to save notes:', error);
+      toast.error('Failed to save notes');
+    } finally {
+      setLoading(prev => ({ ...prev, saveNotes: false }));
     }
   };
 
@@ -351,28 +342,25 @@ const StudyTimer = () => {
   const getSubjectStatus = (subject) => {
     const completed = completedSubjects.find(s => s.subject === subject && s.completed);
     if (completed) return 'completed';
-
     const paused = pausedSessions.find(s => s.subject === subject);
     if (paused) return 'paused';
-
     const active = currentSession?.subject === subject;
     if (active) return 'active';
-
     return 'pending';
   };
 
   const getSubjectActualTime = (subject) => {
     const completed = completedSubjects.find(s => s.subject === subject);
     if (completed) return completed.actualTime || 0;
-
     const paused = pausedSessions.find(s => s.subject === subject);
     if (paused) return paused.elapsedTime || 0;
-
-    if (currentSession?.subject === subject) return elapsedTime;
-
+    if (currentSession?.subject === subject) {
+      return elapsedTime;
+    }
     return 0;
   };
 
+  // JSX
   if (currentSession && isStudying) {
     const targetTime = currentSession.targetTime || 3600;
     const progress = (elapsedTime / targetTime) * 100;
@@ -389,21 +377,22 @@ const StudyTimer = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={async () => {
-              await saveSessionTime();
+              await saveSessionTimeImmediate();
               await handlePauseSession();
               navigate('/reading');
             }}
-            className="flex items-center space-x-2 text-gray-600 dark:text-gray-300"
+            disabled={loading.pause}
+            className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 disabled:opacity-50"
           >
             <ArrowLeft size={20} />
-            <span>Back</span>
+            <span>{loading.pause ? 'Pausing...' : 'Back'}</span>
           </motion.button>
 
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={async () => {
-              await saveSessionTime();
+              await saveSessionTimeImmediate();
               navigate('/');
             }}
             className="flex items-center space-x-2 text-gray-600 dark:text-gray-300"
@@ -427,7 +416,7 @@ const StudyTimer = () => {
                 </div>
                 <div>
                   <h3 className="font-bold">🎉 Target Time Reached!</h3>
-                  <p className="text-sm opacity-90">You've completed your study session goal!</p>
+                  <p className="text-sm opacity-90">You've completed your {currentSession?.subject} study session!</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
@@ -509,10 +498,11 @@ const StudyTimer = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handlePauseSession}
-              className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-xl flex items-center space-x-2"
+              disabled={loading.pause}
+              className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-xl flex items-center space-x-2 disabled:opacity-50"
             >
               <Pause size={20} />
-              <span>Pause</span>
+              <span>{loading.pause ? 'Pausing...' : 'Pause'}</span>
             </motion.button>
 
             <motion.button
@@ -526,12 +516,14 @@ const StudyTimer = () => {
             </motion.button>
 
             <motion.button
-              onClick={handleEndButtonClick}
-              disabled={isEnding}
-              className="bg-red-500 text-white px-6 py-3 rounded-xl flex items-center space-x-2"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleEndSession}
+              disabled={loading.end}
+              className="bg-red-500 text-white px-6 py-3 rounded-xl flex items-center space-x-2 disabled:opacity-50"
             >
               <Square size={20} />
-              <span> {isEnding ? "Ending..." : "End"}</span>
+              <span>{loading.end ? 'Ending...' : 'End'}</span>
             </motion.button>
           </div>
 
@@ -547,13 +539,16 @@ const StudyTimer = () => {
                 placeholder="Add your study notes here..."
                 className="w-full h-24 p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white resize-none"
               />
-              <button
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={handleSaveNotes}
-                className="mt-2 bg-green-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+                disabled={loading.saveNotes}
+                className="mt-2 bg-green-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2 disabled:opacity-50"
               >
                 <Save size={16} />
-                <span>Save Notes</span>
-              </button>
+                <span>{loading.saveNotes ? 'Saving...' : 'Save Notes'}</span>
+              </motion.button>
             </motion.div>
           )}
         </div>
@@ -598,10 +593,11 @@ const StudyTimer = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => handleResumeSession(session.sessionId)}
-                  className="bg-gradient-to-r from-primary-600 to-secondary-600 text-white px-4 py-2 rounded-xl flex items-center space-x-2"
+                  disabled={loading.resume}
+                  className="bg-gradient-to-r from-primary-600 to-secondary-600 text-white px-4 py-2 rounded-xl flex items-center space-x-2 disabled:opacity-50"
                 >
                   <Play size={16} />
-                  <span>Resume</span>
+                  <span>{loading.resume ? 'Resuming...' : 'Resume'}</span>
                 </motion.button>
               </motion.div>
             ))}
@@ -655,11 +651,11 @@ const StudyTimer = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleStartSession}
-            disabled={!selectedSubject}
+            disabled={!selectedSubject || loading.start}
             className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
           >
             <Play size={20} />
-            <span>Start Session</span>
+            <span>{loading.start ? 'Starting...' : 'Start Session'}</span>
           </motion.button>
         </div>
       </motion.div>

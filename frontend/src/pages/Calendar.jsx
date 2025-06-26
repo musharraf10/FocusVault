@@ -22,6 +22,11 @@ const Calendar = () => {
     subject: '',
     priority: 'medium'
   });
+  const [buttonLoading, setButtonLoading] = useState({
+    add: false,
+    edit: false,
+    delete: {}
+  });
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -69,6 +74,7 @@ const Calendar = () => {
     }
 
     try {
+      setButtonLoading(prev => ({ ...prev, add: true }));
       const response = await axios.post(`${API_URL}/api/calendar/events`, newEvent);
       setEvents([...events, response.data]);
       setNewEvent({
@@ -85,6 +91,8 @@ const Calendar = () => {
       toast.success('Event added successfully!');
     } catch (error) {
       toast.error('Failed to add event');
+    } finally {
+      setButtonLoading(prev => ({ ...prev, add: false }));
     }
   };
 
@@ -95,22 +103,28 @@ const Calendar = () => {
     }
 
     try {
+      setButtonLoading(prev => ({ ...prev, edit: true }));
       const response = await axios.put(`${API_URL}/api/calendar/events/${editingEvent._id}`, editingEvent);
       setEvents(events.map(event => event._id === editingEvent._id ? response.data : event));
       setEditingEvent(null);
       toast.success('Event updated successfully!');
     } catch (error) {
       toast.error('Failed to update event');
+    } finally {
+      setButtonLoading(prev => ({ ...prev, edit: false }));
     }
   };
 
   const handleDeleteEvent = async (id) => {
     try {
+      setButtonLoading(prev => ({ ...prev, delete: { ...prev.delete, [id]: true } }));
       await axios.delete(`${API_URL}/api/calendar/events/${id}`);
       setEvents(events.filter(event => event._id !== id));
       toast.success('Event deleted');
     } catch (error) {
       toast.error('Failed to delete event');
+    } finally {
+      setButtonLoading(prev => ({ ...prev, delete: { ...prev.delete, [id]: false } }));
     }
   };
 
@@ -250,14 +264,18 @@ const Calendar = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsAddingEvent(true)}
-            className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20
-             px-4 py-2 rounded-xl flex items-center space-x-1 
-             text-sm sm:text-base whitespace-nowrap"
+            disabled={buttonLoading.add}
+            className="text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-4 py-2 rounded-xl flex items-center space-x-1 text-sm sm:text-base whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Plus size={14} className="shrink-0" />
-            <span className="truncate">Add Event</span>
+            {buttonLoading.add ? (
+              <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full mr-1" />
+            ) : (
+              <>
+                <Plus size={14} className="shrink-0" />
+                <span className="truncate">Add Event</span>
+              </>
+            )}
           </motion.button>
-
         </div>
 
         {/* Add Event Form */}
@@ -351,9 +369,14 @@ const Calendar = () => {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={handleAddEvent}
-                    className="flex-1 bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium"
+                    disabled={buttonLoading.add}
+                    className="flex-1 bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-3 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Add Event
+                    {buttonLoading.add ? (
+                      <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto" />
+                    ) : (
+                      'Add Event'
+                    )}
                   </motion.button>
                   <motion.button
                     whileHover={{ scale: 1.02 }}
@@ -409,9 +432,14 @@ const Calendar = () => {
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           onClick={handleEditEvent}
-                          className="flex-1 bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-2 rounded-xl font-medium"
+                          disabled={buttonLoading.edit}
+                          className="flex-1 bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-2 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Save Changes
+                          {buttonLoading.edit ? (
+                            <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto" />
+                          ) : (
+                            'Save Changes'
+                          )}
                         </motion.button>
                         <motion.button
                           whileHover={{ scale: 1.02 }}
@@ -472,9 +500,14 @@ const Calendar = () => {
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
                           onClick={() => handleDeleteEvent(event._id)}
-                          className="p-2 text-gray-500 hover:text-red-600 transition-colors"
+                          disabled={buttonLoading.delete[event._id]}
+                          className="p-2 text-gray-500 hover:text-red-600 transition-colors disabled:opacity-50"
                         >
-                          <Trash2 size={16} />
+                          {buttonLoading.delete[event._id] ? (
+                            <div className="animate-spin w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full" />
+                          ) : (
+                            <Trash2 size={16} />
+                          )}
                         </motion.button>
                       </div>
                     </div>

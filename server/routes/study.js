@@ -960,12 +960,18 @@ router.get("/notes", async (req, res) => {
     if (search) query.$text = { $search: search };
     if (subject) query.subject = subject;
 
+    const totalCount = await Note.countDocuments(query);
     const notes = await Note.find(query)
       .sort({ isPinned: -1, createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
 
-    res.json(notes);
+    res.json({
+      notes,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: parseInt(page),
+    });
   } catch (error) {
     console.error("Get notes error:", error);
     res.status(500).json({ message: "Failed to fetch notes" });

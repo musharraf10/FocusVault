@@ -57,8 +57,69 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,json,vue,txt,woff2}"],
         runtimeCaching: [
+          // Cache Google Fonts stylesheets
           {
-            urlPattern: /^https:\/\/api\.*/i,
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-stylesheets",
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          // Cache Google Fonts webfonts
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-webfonts",
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          // Cache Cloudinary images
+          {
+            urlPattern: /^https:\/\/res\.cloudinary\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "cloudinary-images",
+              expiration: {
+                maxEntries: 20,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          // Cache JavaScript assets
+          {
+            urlPattern: ({ request }) => request.destination === "script",
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "js-assets",
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          // Your existing API cache (general)
+          {
+            urlPattern: /^https:\/\/api\..*/i,
             handler: "NetworkFirst",
             options: {
               cacheName: "api-cache",
@@ -71,7 +132,32 @@ export default defineConfig({
               },
             },
           },
+          // Your existing background sync for session state updates
+          {
+            urlPattern: /\/api\/study\/state\/.*$/,
+            handler: "NetworkOnly",
+            method: "POST",
+            options: {
+              backgroundSync: {
+                name: "session-sync-queue",
+                options: {
+                  maxRetentionTime: 24 * 60, // Retry for max 24 hours
+                },
+              },
+            },
+          },
+          // Ensure localhost API routes are not cached
+          {
+            urlPattern: /^http:\/\/localhost:5000\/api\/.*/i,
+            handler: "NetworkOnly",
+            options: {
+              cacheName: "localhost-api",
+            },
+          },
         ],
+      },
+      devOptions: {
+        enabled: true,
       },
     }),
   ],

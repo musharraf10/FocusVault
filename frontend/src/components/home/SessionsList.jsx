@@ -60,7 +60,7 @@ const SessionsList = ({ paginatedSessions, viewMode, currentPage, setCurrentPage
                                     </div>
                                     <div className="flex items-center space-x-1">
                                         <Target size={14} />
-                                        <span>{Math.round(session.targetTime / 60)}h</span>
+                                        <span>{Math.round(session.targetTime / 60)}m</span>
                                     </div>
                                 </div>
                                 <div className="flex items-center justify-between">

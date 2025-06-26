@@ -23,6 +23,7 @@ import feedback from "./routes/feedback.js";
 
 // Import middleware
 import { authMiddleware, requireEmailVerification } from "./middleware/auth.js";
+import "./middleware/cleanupPausedSessions.js";
 
 // Import services
 import NotificationService from "./services/notificationService.js";

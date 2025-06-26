@@ -33,7 +33,7 @@ const userStudyStateSchema = new mongoose.Schema(
     sessionId: {
       type: String,
       required: true,
-      unique: true,
+      // unique: true,
     },
     notes: {
       type: String,
