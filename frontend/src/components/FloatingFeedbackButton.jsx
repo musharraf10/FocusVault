@@ -108,7 +108,7 @@ const FloatingFeedbackButton = ({ hasNewFeedback = true }) => {
                 top: position.y,
                 zIndex: 9999,
                 cursor: dragging ? 'grabbing' : 'pointer',
-                opacity: inactive ? 0.4 : 1,
+                opacity: inactive ? 0.3 : 1,
                 transition: dragging ? 'none' : 'opacity 0.5s, transform 0.3s',
                 touchAction: 'none',
             }}

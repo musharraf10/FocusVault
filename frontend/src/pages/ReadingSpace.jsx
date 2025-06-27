@@ -38,7 +38,7 @@ const ReadingSpace = () => {
 
     switch (activeTab) {
       case 'continue':
-        return <StudyTimer studyContext={useStudy} onNavigateToSession={() => navigate('/session')} />;
+        return <StudyTimer />;
       case 'timetable':
         return <TimetableView />;
       case 'notes':
@@ -48,7 +48,7 @@ const ReadingSpace = () => {
       case 'chat':
         return <ChatRoom />;
       default:
-        return <StudyTimer studyContext={useStudy} onNavigateToSession={() => navigate('/session')} />;
+        return <StudyTimer />;
     }
   };
 
@@ -71,7 +71,7 @@ const ReadingSpace = () => {
 
       {/* Tab Navigation */}
       <div className="overflow-x-auto">
-        <div className="flex space-x-2 pb-2 min-w-max">
+        <div className="flex space-x-2 pb-2  pt-2 pl-1 min-w-max">
           {tabs.map((tab) => (
             <motion.button
               key={tab.id}
@@ -79,8 +79,8 @@ const ReadingSpace = () => {
               whileTap={{ scale: 0.95 }}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center space-x-2 px-4 py-2 rounded-xl font-medium whitespace-nowrap transition-all duration-200 ${activeTab === tab.id
-                ? 'bg-gradient-to-r from-primary-600 to-secondary-600 text-white shadow-lg'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
+                ? 'bg-gradient-to-r from-primary-600 to-secondary-600 text-white shadow-lg border-none focus:ring-0 outline-none'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 focus:ring-0 outline-none'
                 }`}
             >
               <tab.icon size={16} />
@@ -89,6 +89,7 @@ const ReadingSpace = () => {
           ))}
         </div>
       </div>
+
 
       {/* Tab Content */}
       <div className="min-h-[60vh]">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     PlusIcon,
@@ -11,12 +11,13 @@ import {
     CalendarIcon,
     UserIcon,
     HandThumbUpIcon,
+    ChatBubbleOvalLeftIcon,
 } from '@heroicons/react/24/outline';
 import { HandThumbUpIcon as HandThumbUpIconSolid } from '@heroicons/react/24/solid';
 import { useFeedback } from '../context/FeedbackContext';
 import StarRating, { CompactStarRating } from '../components/StarRating';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
-import { ArrowLeft } from 'lucide-react'; // Import ArrowLeft icon
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 
 const FeedbackPage = ({ user }) => {
     const {
@@ -30,8 +31,9 @@ const FeedbackPage = ({ user }) => {
         deleteFeedback,
         clearError,
         markAsSeen,
+        replyToFeedback,
     } = useFeedback();
-    const navigate = useNavigate(); // Initialize navigate hook
+    const navigate = useNavigate();
 
     // Component state
     const [activeTab, setActiveTab] = useState('all');
@@ -42,6 +44,9 @@ const FeedbackPage = ({ user }) => {
         rating: 0,
         suggestion: '',
     });
+    const [replyModal, setReplyModal] = useState({ open: false, feedbackId: null });
+    const [replyText, setReplyText] = useState('');
+    const [isReplying, setIsReplying] = useState(false);
 
     // Fetch feedback on component mount
     useEffect(() => {
@@ -125,7 +130,60 @@ const FeedbackPage = ({ user }) => {
         }));
     };
 
-    // Get feedback type badge styling
+    // Helper function to get feedback type by ID
+    const getFeedbackType = (feedbackId) => {
+        for (const type of ['positive', 'moderate', 'general']) {
+            if (feedback[type]?.some(item => item._id === feedbackId)) {
+                return type;
+            }
+        }
+        return 'general'; // Fallback
+    };
+
+    // Handle reply submission
+    const handleReplySubmit = async () => {
+        if (!user) {
+            alert('Please log in to reply');
+            return;
+        }
+
+        if (!replyText.trim() || replyText.length < 5) {
+            alert('Reply must be at least 5 characters long');
+            return;
+        }
+
+        setIsReplying(true);
+        const feedbackType = activeTab === 'all' ? getFeedbackType(replyModal.feedbackId) : activeTab;
+        const result = await replyToFeedback(replyModal.feedbackId, replyText, feedbackType);
+        setIsReplying(false);
+
+        if (result.success) {
+            setReplyText('');
+        } else {
+            alert(result.error); // Or use toast.error for consistency
+        }
+    };
+
+    // Open reply modal
+    const openReplyModal = (feedbackId) => {
+        setReplyModal({ open: true, feedbackId });
+    };
+
+    // Close reply modal
+    const closeReplyModal = () => {
+        setReplyModal({ open: false, feedbackId: null });
+        setReplyText('');
+    };
+
+    // Get feedback responses by ID
+    const getFeedbackResponses = (feedbackId) => {
+        const feedbackItem = Object.values(feedback)
+            .flat()
+            .find(item => item._id === feedbackId);
+        return feedbackItem?.responses || [];
+    };
+
+    // Get type badge styling
     const getTypeBadge = (type) => {
         const badgeStyles = {
             positive: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700/50',
@@ -137,16 +195,16 @@ const FeedbackPage = ({ user }) => {
     };
 
     // Filter feedback based on active tab
-    const getFilteredFeedback = () => {
+    const getFilteredFeedback = useMemo(() => {
         if (activeTab === 'all') {
             return [
-                ...(feedback.positive || []),
-                ...(feedback.moderate || []),
-                ...(feedback.general || []),
+                ...(feedback.positive || []).map(item => ({ ...item, responses: item.responses || [] })),
+                ...(feedback.moderate || []).map(item => ({ ...item, responses: item.responses || [] })),
+                ...(feedback.general || []).map(item => ({ ...item, responses: item.responses || [] })),
             ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         }
-        return feedback[activeTab] || [];
-    };
+        return (feedback[activeTab] || []).map(item => ({ ...item, responses: item.responses || [] }));
+    }, [feedback, activeTab]);
 
     // Format date
     const formatDate = (dateString) => {
@@ -178,7 +236,7 @@ const FeedbackPage = ({ user }) => {
 
     // Handle back navigation
     const handleBack = () => {
-        navigate(-1); // Go back to the previous page
+        navigate(-1);
     };
 
     return (
@@ -190,8 +248,7 @@ const FeedbackPage = ({ user }) => {
                     animate={{ opacity: 1, y: 0 }}
                     className="text-center mb-8 relative"
                 >
-                    {/* Back Button */}
-                    {/* <motion.button
+                    <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={handleBack}
@@ -199,9 +256,9 @@ const FeedbackPage = ({ user }) => {
                     >
                         <ArrowLeft size={20} />
                         <span className="text-sm font-medium">Back</span>
-                    </motion.button> */}
+                    </motion.button>
 
-                    <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+                    <h1 className="text-4xl font speeches-bold text-gray-900 dark:text-white mb-4">
                         Feedback Hub
                     </h1>
                     <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
@@ -363,7 +420,7 @@ const FeedbackPage = ({ user }) => {
                                         }
                   `}
                                 >
-                                    <Icon className={`w-4 h-4 shrink-0 ${tab.color}`} />
+                                    <Icon className={`w-4 h-4 shrink-0 ${tab.color || ''}`} />
                                     <span className="truncate">{tab.label}</span>
                                     {tab.count > 0 && (
                                         <span
@@ -399,7 +456,7 @@ const FeedbackPage = ({ user }) => {
                         animate={{ opacity: 1 }}
                         className="space-y-4"
                     >
-                        {getFilteredFeedback().length === 0 ? (
+                        {getFilteredFeedback.length === 0 ? (
                             <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
                                 <ChatBubbleLeftRightIcon className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
                                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -412,7 +469,7 @@ const FeedbackPage = ({ user }) => {
                                 </p>
                             </div>
                         ) : (
-                            getFilteredFeedback().map((item, index) => (
+                            getFilteredFeedback.map((item, index) => (
                                 <motion.div
                                     key={item._id}
                                     initial={{ opacity: 0, y: 20 }}
@@ -508,6 +565,15 @@ const FeedbackPage = ({ user }) => {
                                                     {Array.isArray(item.upvotes) ? item.upvotes.length : 0}
                                                 </span>
                                             </button>
+
+                                            {/* Reply Button */}
+                                            <button
+                                                onClick={() => openReplyModal(item._id)}
+                                                className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                            >
+                                                <ChatBubbleOvalLeftIcon className="w-4 h-4" />
+                                                <span>Reply ({item.responses?.length || 0})</span>
+                                            </button>
                                         </div>
 
                                         {/* Delete Button (only for feedback owner) */}
@@ -526,6 +592,93 @@ const FeedbackPage = ({ user }) => {
                         )}
                     </motion.div>
                 )}
+
+                {/* Reply Modal */}
+                <AnimatePresence>
+                    {replyModal.open && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+                        >
+                            <motion.div
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.8, opacity: 0 }}
+                                className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-lg w-full max-h-[80vh] flex flex-col"
+                            >
+                                {/* Modal Header */}
+                                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                        Responses
+                                    </h3>
+                                    <button
+                                        onClick={closeReplyModal}
+                                        className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                {/* Modal Body */}
+                                <div className="flex-1 overflow-y-auto p-4">
+                                    {getFeedbackResponses(replyModal.feedbackId).length === 0 ? (
+                                        <p className="text-gray-600 dark:text-gray-300 text-center">
+                                            No responses yet. Be the first to respond!
+                                        </p>
+                                    ) : (
+                                        getFeedbackResponses(replyModal.feedbackId).map((reply, replyIndex) => (
+                                            <div
+                                                key={reply._id || replyIndex}
+                                                className="mb-4 pl-4 border-l-2 border-gray-200 dark:border-gray-600"
+                                            >
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                        {reply.name || 'Anonymous'}
+                                                    </span>
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                        {formatDate(reply.createdAt)}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-gray-700 dark:text-gray-300">
+                                                    {reply.text}
+                                                </p>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                {/* Sticky Reply Input */}
+                                {user && user.emailVerified && (
+                                    <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+                                        <div className="flex gap-2">
+                                            <textarea
+                                                value={replyText}
+                                                onChange={(e) => setReplyText(e.target.value)}
+                                                placeholder="Write your reply..."
+                                                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white min-h-[60px] resize-none"
+                                                maxLength={500}
+                                            />
+                                            <button
+                                                onClick={handleReplySubmit}
+                                                className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                disabled={!replyText.trim() || isReplying}
+                                            >
+                                                {isReplying ? 'Sending...' : 'Send'}
+                                            </button>
+                                        </div>
+                                        <div className="text-right text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                            {replyText.length}/500 characters
+                                        </div>
+                                    </div>
+                                )}
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
         </div>
     );

@@ -278,4 +278,53 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+router.post("/:id/reply", async (req, res) => {
+  try {
+    const { text } = req.body;
+    const feedbackId = req.params.id;
+    const userId = req.user._id;
+
+    if (!text || text.trim().length < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "Reply text is required.",
+      });
+    }
+
+    const feedback = await Feedback.findById(feedbackId);
+
+    if (!feedback || !feedback.isActive) {
+      return res.status(404).json({
+        success: false,
+        message: "Feedback not found or inactive.",
+      });
+    }
+
+    const newReply = {
+      userId,
+      name: req.user.name,
+      text: text.trim(),
+      createdAt: new Date(),
+    };
+
+    feedback.responses.push(newReply);
+    await feedback.save();
+
+    // Fetch updated feedback with populated responses (optional)
+    const updatedFeedback = await Feedback.findById(feedbackId);
+
+    res.status(200).json({
+      success: true,
+      message: "Reply added successfully.",
+      data: updatedFeedback, // ✅ Send the full updated feedback document here
+    });
+  } catch (error) {
+    console.error("Error adding reply:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while adding reply.",
+    });
+  }
+});
+
 export default router;
