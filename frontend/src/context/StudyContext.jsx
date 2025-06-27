@@ -77,12 +77,6 @@ export const StudyProvider = ({ children }) => {
     }
   }, [API_URL, lastFetchTime]);
 
-  // useEffect(() => {
-  //   fetchDashboardAndTimetables();
-  //   fetchActiveSessions();
-  //   fetchCompletedSubjects();
-  // }, [fetchDashboardAndTimetables]);
-
   const fetchActiveSessions = async () => {
     try {
       const res = await axios.get(`${API_URL}/api/study/state`);

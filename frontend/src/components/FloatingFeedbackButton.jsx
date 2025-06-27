@@ -7,8 +7,25 @@ const FloatingFeedbackButton = ({ hasNewFeedback = true }) => {
     const buttonRef = useRef(null);
     const [position, setPosition] = useState(() => {
         const saved = localStorage.getItem('feedbackBtnPosition');
-        return saved ? JSON.parse(saved) : { x: 20, y: window.innerHeight - 100 };
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+
+                if (
+                    typeof parsed.x === 'number' &&
+                    typeof parsed.y === 'number' &&
+                    parsed.x >= 0 && parsed.x <= window.innerWidth &&
+                    parsed.y >= 0 && parsed.y <= window.innerHeight
+                ) {
+                    return parsed;
+                }
+            } catch (error) {
+                console.error('Failed to parse saved position:', error);
+            }
+        }
+        return { x: 20, y: window.innerHeight - 100 };
     });
+
 
     const [dragging, setDragging] = useState(false);
     const [expanded, setExpanded] = useState(false);
@@ -96,15 +113,12 @@ const FloatingFeedbackButton = ({ hasNewFeedback = true }) => {
                 touchAction: 'none',
             }}
         >
-            {/* Main Floating Button */}
             <div className="relative">
                 <button
                     className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-xl transition-all duration-300 flex items-center justify-center"
                 >
                     <MoreVertical size={20} />
                 </button>
-
-                {/* Expandable Options */}
                 {expanded && (
                     <div className="absolute bottom-14 right-0 space-y-2">
                         <button

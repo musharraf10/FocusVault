@@ -9,7 +9,7 @@ const SessionManager = ({ currentSession, isStudying, updateSessionTime, onTimeU
         lastSavedTime: null,
         sessionId: null,
         baseElapsedTime: 0,
-        alarmTriggered: false, // Added to prevent multiple alarm triggers
+        alarmTriggered: false,
     });
 
     const animationFrameRef = useRef(null);
@@ -37,7 +37,6 @@ const SessionManager = ({ currentSession, isStudying, updateSessionTime, onTimeU
             }
         }
 
-        // If no saved or session mismatch
         if (!saved || (saved && JSON.parse(saved).sessionId !== currentSession.sessionId)) {
             const startTime = now;
             const baseElapsed = currentSession.elapsedTime || 0;
@@ -67,7 +66,7 @@ const SessionManager = ({ currentSession, isStudying, updateSessionTime, onTimeU
             sessionRef.current.alarmTriggered = true;
             onTimeUpdate(elapsed);
         } else if (elapsed < targetTime) {
-            sessionRef.current.alarmTriggered = false; // Reset if time drops below target
+            sessionRef.current.alarmTriggered = false;
         }
         animationFrameRef.current = requestAnimationFrame(updateTimeLoop);
     };
@@ -88,7 +87,7 @@ const SessionManager = ({ currentSession, isStudying, updateSessionTime, onTimeU
                     sessionRef.current.alarmTriggered = true;
                     onTimeUpdate(elapsed);
                 } else if (elapsed < targetTime) {
-                    sessionRef.current.alarmTriggered = false; // Reset if time drops below target
+                    sessionRef.current.alarmTriggered = false;
                 }
             }, 1000);
         };
@@ -122,7 +121,6 @@ const SessionManager = ({ currentSession, isStudying, updateSessionTime, onTimeU
         };
     }, [isStudying]);
 
-    // Save time to backend
     const saveSessionTimeImmediate = async () => {
         if (!currentSession || !isStudying) return;
 

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { User, AlertCircle, Edit2, Save, X, Camera, Settings, Bell, Moon, Sun, Shield, LogOut, Trash2, BookOpen, HelpCircle, Info, MessageCircle } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -36,6 +35,7 @@ const Profile = ({ user, logout }) => {
     description: '',
     schedule: { monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [] }
   });
+
   const [buttonLoading, setButtonLoading] = useState({
     saveProfile: false,
     savePreferences: false,
@@ -81,9 +81,10 @@ const Profile = ({ user, logout }) => {
         name: user.name || '',
         email: user.email || '',
         dateOfBirth: user.dateOfBirth ? user.dateOfBirth.split('T')[0] : '',
-        mobile: user.mobile || '',
+        mobile: user.number || '',
         profileImage: user.profileImage || ''
       });
+      console.log(user.number)
       setPreferences(user.preferences || preferences);
     }
     fetchTimetables();
@@ -188,9 +189,20 @@ const Profile = ({ user, logout }) => {
   };
 
   const handleSaveProfile = async () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const nineYearsAgo = new Date(new Date().getFullYear() - 9, new Date().getMonth(), new Date().getDate());
+    const nineYearsAgoStr = nineYearsAgo.toISOString().split('T')[0];
     try {
       setButtonLoading(prev => ({ ...prev, saveProfile: true }));
       const token = localStorage.getItem('token');
+      //Validation
+      if (
+        profileData.dateOfBirth === todayStr ||
+        profileData.dateOfBirth > nineYearsAgoStr
+      ) {
+        toast.error('You must be at least 9 years old to use this app');
+        return;
+      }
       await axios.put(`${API_URL}/api/user/profile`, profileData, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -512,6 +524,7 @@ const Profile = ({ user, logout }) => {
           </div>
         )}
       </motion.div>
+
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}

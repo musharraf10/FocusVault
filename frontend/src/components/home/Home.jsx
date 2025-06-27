@@ -239,6 +239,8 @@ const Home = ({ user }) => {
                     user={user}
                 />
                 <QuoteCard quote={quote} setQuote={setQuote} />
+
+                {/* Insight Box */}
                 {generateInsights().length > 0 && (
                     <motion.div
                         initial={{ y: 20, opacity: 0 }}
@@ -296,6 +298,7 @@ const Home = ({ user }) => {
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.3 }}
                     >
+                        {/* Overview tab */}
                         {activeView === "overview" && (
                             <div className="space-y-6">
                                 <StatsGrid benchmarks={benchmarks} studyData={studyData} detailedStats={detailedStats} />
@@ -390,6 +393,7 @@ const Home = ({ user }) => {
                             </div>
                         )}
 
+                        {/* Study analytics */}
                         {activeView === "analytics" && analytics && (
                             <div className="space-y-6">
                                 {/* Enhanced Stats Grid */}
@@ -402,7 +406,7 @@ const Home = ({ user }) => {
                                         <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center mx-auto mb-2">
                                             <Clock className="text-white" size={20} />
                                         </div>
-                                        <p className="text-2xl font-bold text-blue-600">{formatTime(analytics.userStats.totalStudyHours)}m</p>
+                                        <p className="text-2xl font-bold text-blue-600">{(analytics.userStats.totalStudyHours)}m</p>
                                         <p className="text-xs text-blue-600 font-medium">Total Hours</p>
                                     </motion.div>
 
@@ -553,6 +557,7 @@ const Home = ({ user }) => {
                             </div>
                         )}
 
+                        {/* Performance View */}
                         {activeView === "performance" && (
                             <div className="space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -659,6 +664,8 @@ const Home = ({ user }) => {
                                 )}
                             </div>
                         )}
+
+                        {/* Session Component */}
                         {activeView === "sessions" && (
                             <SessionsList
                                 paginatedSessions={paginatedSessions}

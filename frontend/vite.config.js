@@ -57,7 +57,6 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,json,vue,txt,woff2}"],
         runtimeCaching: [
-          // Cache Google Fonts stylesheets
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: "CacheFirst",
@@ -117,7 +116,6 @@ export default defineConfig({
               },
             },
           },
-          // Your existing API cache (general)
           {
             urlPattern: /^https:\/\/api\..*/i,
             handler: "NetworkFirst",
@@ -132,7 +130,6 @@ export default defineConfig({
               },
             },
           },
-          // Your existing background sync for session state updates
           {
             urlPattern: /\/api\/study\/state\/.*$/,
             handler: "NetworkOnly",
@@ -146,7 +143,6 @@ export default defineConfig({
               },
             },
           },
-          // Ensure localhost API routes are not cached
           {
             urlPattern: /^http:\/\/localhost:5000\/api\/.*/i,
             handler: "NetworkOnly",

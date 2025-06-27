@@ -4,7 +4,7 @@ import UserStudyState from "../models/UserStudyState.js";
 // Run daily at 1:00 AM
 cron.schedule("0 1 * * *", async () => {
   const today = new Date();
-  today.setHours(0, 0, 0, 0); // start of today
+  today.setHours(0, 0, 0, 0);
 
   try {
     const result = await UserStudyState.deleteMany({
@@ -17,5 +17,3 @@ cron.schedule("0 1 * * *", async () => {
     console.error("Cron Cleanup Error:", err);
   }
 });
-
-// Keep Node process running

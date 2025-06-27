@@ -12,7 +12,6 @@ import passport from "./config/passport.js";
 import jwt from "jsonwebtoken";
 dotenv.config();
 
-// Import routes
 import authRoutes from "./routes/auth.js";
 import studyRoutes from "./routes/study.js";
 import todoRoutes from "./routes/todo.js";
@@ -54,7 +53,7 @@ redisClient.on("error", (err) => {
 });
 
 redisClient.on("ready", () => {
-  console.log("✅ Connected to Upstash Redis");
+  console.log("Connected to Upstash Redis");
 });
 
 await redisClient.connect();
@@ -89,14 +88,14 @@ mongoose
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => console.error("MongoDB connection error:", err));
 
-// Make Redis client and io available to routes
+// Making Redis client and io available to routes
 app.use((req, res, next) => {
   req.redis = redisClient;
   req.io = io;
   next();
 });
 
-// Initialize notification service
+// Initialized notification service
 const notificationService = new NotificationService(io);
 
 // Routes

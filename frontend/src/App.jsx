@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useState } from 'react';
 import { useAuth } from './context/AuthContext';
 import MainLayout from './components/layout/MainLayout';
 import AuthLayout from './components/layout/AuthLayout';
@@ -22,10 +23,12 @@ import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import PhoneVerificationPage from './pages/auth/PhoneVerification';
 import Rankings from './pages/Rankings';
+import Tutorial from './components/tutorial/Tutorial'
 
 function App() {
   const { user, loading, logout } = useAuth();
   const location = useLocation();
+  const [showTutorial, setShowTutorial] = useState(true);
 
   if (loading) return <LoadingScreen />;
 
@@ -40,6 +43,10 @@ function App() {
   // if (user && user.emailVerified && !user.phoneVerified && !isOnVerifyPhonePage) {
   //   return <PhoneVerificationPage />;
   // }
+
+  if (showTutorial && user && user.emailVerified && user.tutorialCompleted === false) {
+    return <Tutorial onComplete={() => setShowTutorial(false)} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">

@@ -185,6 +185,7 @@ const StudyTimer = () => {
     if (audioRef.current.audioContext.state === 'suspended') {
       audioRef.current.audioContext.resume().then(() => {
         playSingleBeep();
+        setIsAlarmPlaying(false);
       }).catch(err => {
         console.error('Failed to resume audio context:', err);
         audioRef.current.isPlaying = false;

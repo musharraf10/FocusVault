@@ -56,7 +56,6 @@ const calendarEventSchema = new mongoose.Schema(
   }
 );
 
-// Index for date-based queries
 calendarEventSchema.index({ userId: 1, date: 1 });
 
 export default mongoose.model("CalendarEvent", calendarEventSchema);

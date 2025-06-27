@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 
 const router = express.Router();
 
-// Update user profile
+// user profile
 router.put("/profile", async (req, res) => {
   try {
     const { name, dateOfBirth, mobile, profileImage } = req.body;
@@ -30,7 +30,7 @@ router.put("/profile", async (req, res) => {
   }
 });
 
-// Update user preferences
+//user preferences
 router.put("/preferences", async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
@@ -47,6 +47,23 @@ router.put("/preferences", async (req, res) => {
   } catch (error) {
     console.error("Update preferences error:", error);
     res.status(500).json({ message: "Failed to update preferences" });
+  }
+});
+
+router.patch("/tutorial-complete", async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { tutorialCompleted: true },
+      { new: true }
+    );
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json({ message: "Tutorial completed successfully" });
+  } catch (error) {
+    console.error("Complete tutorial error:", error);
+    res.status(500).json({ message: "Failed to complete tutorial" });
   }
 });
 
