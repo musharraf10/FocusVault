@@ -225,9 +225,6 @@ A modern, production-ready Progressive Web App (PWA) built with the MERN stack t
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
@@ -238,7 +235,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-For support, email support@focusvault.app or create an issue on GitHub.
+For support, email skmusharaf01@gmail.com or create an issue on GitHub.
 
 ---
 
