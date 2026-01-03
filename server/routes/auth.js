@@ -38,7 +38,6 @@ router.post("/register", async (req, res) => {
       await emailService.sendVerificationEmail(user, emailVerificationToken);
     } catch (emailError) {
       console.error("Failed to send verification email:", emailError);
-      // Don't fail registration if email fails
     }
 
     // Generate token
@@ -82,7 +81,7 @@ router.post("/login", async (req, res) => {
     const token = jwt.sign(
       { userId: user._id },
       process.env.JWT_SECRET || "fallback_secret",
-      { expiresIn: "7d" }
+      { expiresIn: "1d" }
     );
 
     // Remove password from response
@@ -115,7 +114,7 @@ router.get(
       const token = jwt.sign(
         { userId: req.user._id },
         process.env.JWT_SECRET || "fallback_secret",
-        { expiresIn: "7d" }
+        { expiresIn: "1d" }
       );
 
       // Redirect to frontend with token

@@ -23,19 +23,19 @@ export default defineConfig({
         start_url: "/",
         icons: [
           {
-            src: "/public/android/andriod-launchericon-192-192.png",
+            src: "/android/andriod-launchericon-192-192.png",
             sizes: "192x192",
             type: "image/png",
             purpose: "any maskable",
           },
           {
-            src: "/public/android/andriod-launchericon-512-512.png",
+            src: "/android/andriod-launchericon-512-512.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "any maskable",
           },
           {
-            src: "/public/ios/180.png",
+            src: "/ios/180.png",
             sizes: "180x180",
             type: "image/png",
           },

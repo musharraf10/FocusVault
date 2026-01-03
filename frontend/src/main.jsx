@@ -15,10 +15,10 @@ import { setupAxios } from './services/apiServices';
 
 
 // Register service worker for PWA
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register('../../public/sw.js')
+      .register('/sw.js')
       .then((registration) => {
         console.log('Service Worker registered:', registration);
         if ('SyncManager' in window) {
